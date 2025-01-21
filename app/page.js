@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from 'next/image'
+import Script from 'next/script';
 
 import { Viewer } from "three-dxf";
 import DxfParser from "dxf-parser";
