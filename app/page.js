@@ -29,7 +29,7 @@ export default function Home() {
       return;
     }
     try {
-      const resp = await fetch("http://localhost:8000/chat-with-gpt/", {
+      const resp = await fetch("http://188.68.54.146:8050/chat-with-gpt/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: text }),
@@ -39,10 +39,10 @@ export default function Home() {
       if (data.status === "ok") {
         setLastMessage(`Thema erkannt (Baugraben/Rohr/ Durchstich). DXF wird generiert... - ${lvText}`);
         generateDXF(text);
-      } 
+      }
       else if (data.status === "limitation") {
         setLastMessage(data.message);
-      } 
+      }
       else {
         setLastMessage("Unbekannte Antwort vom Server / ChatGPT.");
       }
@@ -59,7 +59,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch("http://localhost:8000/generate-dxf/", {
+      const resp = await fetch("http://188.68.54.146:8050/generate-dxf/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lv_text: text }),
@@ -87,7 +87,7 @@ export default function Home() {
     }
 
     try {
-      const fileResp = await fetch(`http://localhost:8000/download-dxf/${filename}`);
+      const fileResp = await fetch(`http://188.68.54.146:8050/download-dxf/${filename}`);
       const arrayBuffer = await fileResp.arrayBuffer();
 
       const dxfText = new TextDecoder("utf-8").decode(arrayBuffer);
@@ -139,7 +139,7 @@ export default function Home() {
 
   function handleDownloadClick() {
     if (!downloadFilename) return;
-    window.open(`http://localhost:8000/download-dxf/${downloadFilename}`, "_blank");
+    window.open(`http://188.68.54.146:8050/download-dxf/${downloadFilename}`, "_blank");
   }
 
   function handleKeyDown(e) {
@@ -163,9 +163,9 @@ export default function Home() {
       <div className="home-preview">
         {!downloadFilename ? (
           <div className="home-initialScreen">
-            <Image 
-              src={SlickCommLogo} 
-              alt="SlickComm Logo" 
+            <Image
+              src={SlickCommLogo}
+              alt="SlickComm Logo"
               width={100}
               height={100}
               className="home-initialLogo"
