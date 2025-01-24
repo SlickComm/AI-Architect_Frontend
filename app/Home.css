@@ -43,7 +43,7 @@
   }
 
   .home-chatBubble {
-    @apply mx-4 mt-4 mb-2 py-2 px-4 bg-gray-800 border border-gray-600 rounded;
+    @apply mt-2 mb-2 py-2 px-2 bg-gray-800 border border-gray-600 rounded;
   }
 
   .home-hint {

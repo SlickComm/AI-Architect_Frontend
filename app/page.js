@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from 'next/image'
-import Script from 'next/script';
 
 import { Viewer } from "three-dxf";
 import DxfParser from "dxf-parser";
@@ -16,80 +15,138 @@ import SlickCommLogo from "../app/SlickCommLogo_100_blue.png";
 import "./Home.css";
 
 export default function Home() {
-  const [lvText, setLvText] = useState("");
-  const [downloadFilename, setDownloadFilename] = useState(null);
-  const [lastMessage, setLastMessage] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [elementDescription, setElementDescription] = useState("");
+
+  const [dxfBuffer, setDxfBuffer] = useState(null);
+  const [downloadFilename, setDownloadFilename] = useState("");
+
+  const [gptAnswer, setGptAnswer] = useState("");
 
   const viewerContainerRef = useRef(null);
-  const viewerInstanceRef = useRef(null);
 
-  async function chatWithGptAndMaybeGenerate(text) {
-    if (!text) {
-      console.log("Bitte LV-Text eingeben!");
+  // --------------------------
+  // 1) Session automatisch starten
+  // --------------------------
+  useEffect(() => {
+    handleStartSession();
+  }, []);
+
+  // --------------------------
+  // 2) Neu rendern, wenn dxfBuffer / downloadFilename sich ändern
+  // --------------------------
+  useEffect(() => {
+    if (downloadFilename && dxfBuffer && viewerContainerRef.current) {
+      renderDXF(dxfBuffer);
+    }
+  }, [downloadFilename, dxfBuffer]);
+
+  // --------------------------
+  // Start Session
+  // --------------------------
+  async function handleStartSession() {
+    try {
+      const resp = await fetch("http://localhost:8000/start-session/", {
+        method: "POST",
+      });
+
+      const data = await resp.json();
+      setSessionId(data.session_id);
+
+      console.log("Session gestartet:", data.session_id);
+    } catch (err) {
+      console.error("Fehler bei start-session:", err);
+    }
+  }
+
+  // --------------------------
+  // Add Element
+  // --------------------------
+  async function handleAddElement() {
+    if (!sessionId) {
+      alert("Keine Session vorhanden.");
       return;
     }
+
+    if (!elementDescription) {
+      alert("Bitte eine Beschreibung eingeben (z.B. 'Baugraben l=12.35 b=0.98 t=1.35').");
+      return;
+    }
+
     try {
-      const resp = await fetch("http://188.68.54.146:8050/chat-with-gpt/", {
+      const resp = await fetch(`http://localhost:8000/add-element/?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text }),
+        body: JSON.stringify({ description: elementDescription }),
       });
       const data = await resp.json();
-
       if (data.status === "ok") {
-        setLastMessage(`Thema erkannt (Baugraben/Rohr/ Durchstich). DXF wird generiert... - ${lvText}`);
-        generateDXF(text);
-      }
-      else if (data.status === "limitation") {
-        setLastMessage(data.message);
-      }
-      else {
-        setLastMessage("Unbekannte Antwort vom Server / ChatGPT.");
-      }
-    } catch (error) {
-      console.error("Fehler bei chatWithGptAndMaybeGenerate:", error);
-      setLastMessage("Fehler bei der Kommunikation mit dem Backend.");
-    }
-  }
-
-  async function generateDXF(text) {
-    if (!text) {
-      console.log("Bitte LV-Text eingeben!");
-      return;
-    }
-
-    try {
-      const resp = await fetch("http://188.68.54.146:8050/generate-dxf/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lv_text: text }),
-      });
-      const data = await resp.json();
-      if (data.filename) {
-        setDownloadFilename(data.filename);
-        console.log("DXF erfolgreich generiert!");
+        setGptAnswer(data.answer);
+        console.log("Aktualisiertes JSON:", data.updated_json);
       } else {
-        alert("Fehler: " + data.message);
+        console.error("Fehler bei add-element:", data);
+        alert("Fehler bei add-element");
       }
-    } catch (error) {
-      console.error("Fehler beim Generieren der DXF:", error);
-      alert("Ein Fehler ist aufgetreten. Bitte versuche es erneut.");
+    } catch (err) {
+      console.error("Fehler bei add-element:", err);
     }
   }
 
-  async function renderDXF(filename) {
-    if (!filename) {
-      // Keine Datei => Canvas leeren
-      if (viewerContainerRef.current) {
-        viewerContainerRef.current.innerHTML = "";
-      }
+  // --------------------------
+  // Generate DXF
+  // --------------------------
+  async function handleGenerateDxf() {
+    if (!sessionId) {
+      alert("Keine Session vorhanden.");
       return;
     }
 
     try {
-      const fileResp = await fetch(`http://188.68.54.146:8050/download-dxf/${filename}`);
-      const arrayBuffer = await fileResp.arrayBuffer();
+      const resp = await fetch(`http://localhost:8000/generate-dxf-by-session/?session_id=${sessionId}`, {
+        method: "POST",
+      });
+      if (!resp.ok) {
+        alert("Fehler beim Generieren der DXF");
+        return;
+      }
 
+      const arrayBuffer = await resp.arrayBuffer();
+      const filename = "myDrawing.dxf";
+
+      setDxfBuffer(arrayBuffer);
+      setDownloadFilename(filename);
+
+    } catch (err) {
+      console.error("Fehler bei generate-dxf:", err);
+    }
+  }
+
+  // --------------------------
+  // Download der DXF-Datei
+  // --------------------------
+  function handleDownloadClick() {
+    if (!dxfBuffer) return;
+
+    // Blob erstellen
+    const blob = new Blob([dxfBuffer], { type: "application/dxf" });
+    const url = URL.createObjectURL(blob);
+
+    // Link + Klick
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = downloadFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
+  // --------------------------
+  // DXF rendern (three-dxf)
+  // --------------------------
+  async function renderDXF(arrayBuffer) {
+    try {
       const dxfText = new TextDecoder("utf-8").decode(arrayBuffer);
       const parser = new DxfParser();
       const dxfParsed = parser.parseSync(dxfText);
@@ -97,65 +154,49 @@ export default function Home() {
       const container = viewerContainerRef.current;
       if (!container) return;
 
-      // Vorheriges Canvas entfernen
+      // Vorheriges Canvas leeren
       container.innerHTML = "";
 
-      // "Viewer" von three-dxf
       const viewer = new Viewer(
         dxfParsed,
         container,
         container.clientWidth,
         container.clientHeight,
-        "#222222",
+        "#333333",
         THREE
       );
-      // Standard-Kamera & Szene aus dem Viewer holen
       const { camera, scene, renderer } = viewer;
 
-      // ~~~~~ ORBIT CONTROLS ~~~~~
-      // Wir ersetzen oder modifizieren den Default, damit wir Pan + Zoom haben, aber KEINE Rotation
+      // OrbitControls aktivieren
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableRotate = false;
       controls.enablePan = true;
       controls.enableZoom = true;
 
-      // Falls du statt SHIFT+LMB direktes Panning willst:
-      controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-
-      // Render-Loop anstoßen (OrbitControls arbeitet intern)
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
       }
       animate();
-
-      // Speichern für später
-      viewerInstanceRef.current = viewer;
     } catch (err) {
-      console.error("Fehler beim Rendern der DXF:", err);
+      console.error("Fehler beim Rendern des DXF:", err);
     }
   }
 
-  function handleDownloadClick() {
-    if (!downloadFilename) return;
-    window.open(`http://188.68.54.146:8050/download-dxf/${downloadFilename}`, "_blank");
-  }
-
+  // --------------------------
+  // onKeyDown → ENTER
+  // --------------------------
   function handleKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
-      // Ruft chat-with-gpt => bei Erfolg => generateDXF
-      chatWithGptAndMaybeGenerate(lvText);
-      setLvText(""); // optional: Input leeren
+      handleAddElement().then(() => {
+        handleGenerateDxf();
+      });
+
+      setElementDescription("");
     }
   }
-
-  useEffect(() => {
-    if (downloadFilename) {
-      renderDXF(downloadFilename);
-    }
-  }, [downloadFilename]);
 
   return (
     <div className="home-container">
@@ -170,37 +211,29 @@ export default function Home() {
               height={100}
               className="home-initialLogo"
             />
-            <h1 className="home-initialTitle">SlickComm</h1>
+            <h1 className="home-initialTitle">ChatCAD</h1>
             <p className="home-subtitle">Create technical drawings in no time</p>
           </div>
         ) : (
-          // Sobald downloadFilename existiert => Canvas
           <div ref={viewerContainerRef} className="home-viewer" />
         )}
       </div>
 
-      {lastMessage && (
-        <div className="home-chatBubble">
-          {lastMessage}
-        </div>
-      )}
-
       {/* Eingabe unten */}
       <div className="home-inputContainer">
+        {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
         <div className="home-action">
           <input
             type="text"
             className="home-input"
             placeholder="LV-Position eingeben... (Enter zum Generieren)"
-            value={lvText}
-            onChange={(e) => setLvText(e.target.value)}
+            value={elementDescription}
+            onChange={(e) => setElementDescription(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-
-          {/* Button nur anzeigen, wenn downloadFilename vorhanden */}
           {downloadFilename && (
             <button
-              className="home-download"
+              className="home-download" 
               onClick={handleDownloadClick}
             >
               Download
