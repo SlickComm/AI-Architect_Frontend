@@ -185,14 +185,88 @@ export default function Home() {
   }
 
   // --------------------------
+  // Edit Element
+  // --------------------------
+  async function handleEditElement() {
+    if (!sessionId) {
+      alert("Keine Session vorhanden.");
+      return;
+    }
+  
+    if (!elementDescription) {
+      alert("Bitte Beschreibungs-Text eingeben (z.B. 'Ändere Baugraben auf length=12.5').");
+      return;
+    }
+  
+    try {
+      const resp = await fetch(`http://localhost:8000/edit-element/?session_id=${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: elementDescription }),
+      });
+      const data = await resp.json();
+      if (data.status === "ok") {
+        setGptAnswer(data.answer);
+        console.log("Aktualisiertes JSON nach Edit:", data.updated_json);
+      } else {
+        console.error("Fehler bei edit-element:", data);
+        alert("Fehler bei edit-element");
+      }
+    } catch (err) {
+      console.error("Fehler bei edit-element:", err);
+    }
+  }  
+
+  // --------------------------
+  // Delete Element
+  // --------------------------
+  async function handleRemoveElement() {
+    if (!sessionId) {
+      alert("Keine Session vorhanden.");
+      return;
+    }
+  
+    if (!elementDescription) {
+      alert("Bitte Beschreibungs-Text eingeben (z.B. 'Lösche das Rohr').");
+      return;
+    }
+  
+    try {
+      const resp = await fetch(`http://localhost:8000/remove-element/?session_id=${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: elementDescription }),
+      });
+      const data = await resp.json();
+      if (data.status === "ok") {
+        setGptAnswer(data.answer);
+        console.log("Aktualisiertes JSON nach Remove:", data.updated_json);
+      } else {
+        console.error("Fehler bei remove-element:", data);
+        alert("Fehler bei remove-element");
+      }
+    } catch (err) {
+      console.error("Fehler bei remove-element:", err);
+    }
+  }  
+
+  // --------------------------
   // onKeyDown → ENTER
   // --------------------------
   function handleKeyDown(e) {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleAddElement().then(() => {
-        handleGenerateDxf();
-      });
+      const descLower = elementDescription.toLowerCase();
+
+      if (descLower.includes("lösche") || descLower.includes("remove") || descLower.includes("delete")) {
+        handleRemoveElement().then(() => handleGenerateDxf());
+      }
+      else if (descLower.includes("ändere") || descLower.includes("update") || descLower.includes("edit")) {
+        handleEditElement().then(() => handleGenerateDxf());
+      }
+      else {
+        handleAddElement().then(() => handleGenerateDxf());
+      }
 
       setElementDescription("");
     }
@@ -226,7 +300,7 @@ export default function Home() {
           <input
             type="text"
             className="home-input"
-            placeholder="LV-Position eingeben... (Enter zum Generieren)"
+            placeholder="Befehl eingeben... (Enter zum Ausführen)"
             value={elementDescription}
             onChange={(e) => setElementDescription(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -240,7 +314,7 @@ export default function Home() {
             </button>
           )}
         </div>
-        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren und Durchstiche.</p>
+        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstiche.</p>
       </div>
     </div>
   );
