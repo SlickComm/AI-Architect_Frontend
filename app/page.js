@@ -14,6 +14,8 @@ import SlickCommLogo from "../app/SlickCommLogo_100_blue.png";
 // Importiere dein Tailwind-CSS
 import "./Home.css";
 
+const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
 export default function Home() {
   const [sessionId, setSessionId] = useState("");
   const [elementDescription, setElementDescription] = useState("");
@@ -46,7 +48,7 @@ export default function Home() {
   // --------------------------
   async function handleStartSession() {
     try {
-      const resp = await fetch("http://localhost:8000/start-session/", {
+      const resp = await fetch(`${baseUrl}/start-session/`, {
         method: "POST",
       });
 
@@ -74,7 +76,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch(`http://localhost:8000/add-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/add-element/?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: elementDescription }),
@@ -102,7 +104,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch(`http://localhost:8000/generate-dxf-by-session/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/generate-dxf-by-session/?session_id=${sessionId}`, {
         method: "POST",
       });
       if (!resp.ok) {
@@ -199,7 +201,7 @@ export default function Home() {
     }
   
     try {
-      const resp = await fetch(`http://localhost:8000/edit-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/edit-element/?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction: elementDescription }),
@@ -232,7 +234,7 @@ export default function Home() {
     }
   
     try {
-      const resp = await fetch(`http://localhost:8000/remove-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/remove-element/?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction: elementDescription }),
