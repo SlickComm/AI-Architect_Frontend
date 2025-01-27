@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from 'next/image'
 
 import { Viewer } from "three-dxf";
@@ -11,12 +12,19 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 import SlickCommLogo from "../app/SlickCommLogo_100_blue.png";
 
-// Importiere dein Tailwind-CSS
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+
 import "./Home.css";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function Home() {
+  const router = useRouter();
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const [sessionId, setSessionId] = useState("");
   const [elementDescription, setElementDescription] = useState("");
 
@@ -27,12 +35,24 @@ export default function Home() {
 
   const viewerContainerRef = useRef(null);
 
-  // --------------------------
-  // 1) Session automatisch starten
-  // --------------------------
   useEffect(() => {
-    handleStartSession();
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push("/login");
+      } else {
+        setIsAuthenticated(true);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      handleStartSession();
+    }
+  }, [isAuthenticated]);
 
   // --------------------------
   // 2) Neu rendern, wenn dxfBuffer / downloadFilename sich ändern
@@ -274,6 +294,18 @@ export default function Home() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="home-container flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <div>Weiterleitung zum Anmelden...</div>;
+  }
+
   return (
     <div className="home-container">
       {/* Preview-Bereich oben */}
@@ -316,7 +348,7 @@ export default function Home() {
             </button>
           )}
         </div>
-        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstiche.</p>
+        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren und Oberflächenbefestigungen.</p>
       </div>
     </div>
   );

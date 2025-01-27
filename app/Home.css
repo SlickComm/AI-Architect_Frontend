@@ -1,3 +1,78 @@
+  /* Login */
+  .login-container {
+    @apply flex items-center justify-center min-h-screen bg-gray-900;
+  }
+
+  .login-box {
+    @apply bg-gray-800 p-8 rounded shadow-md w-full max-w-md;
+  }
+
+  .login-title {
+    @apply text-2xl font-bold text-white mb-6;
+  }
+
+  .login-formGroup {
+    @apply mb-4;
+  }
+
+  .login-label {
+    @apply block text-gray-300 mb-1;
+  }
+
+  .login-input {
+    @apply w-full p-2 rounded bg-gray-700 text-white border border-gray-600;
+  }
+
+  .login-button {
+    @apply w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded;
+  }
+
+  .login-textInfo {
+    @apply text-gray-400 mt-4;
+  }
+
+  .login-link {
+    @apply text-blue-500 hover:underline;
+  }
+
+  /* Registrierung */
+  .register-container {
+    @apply flex items-center justify-center min-h-screen bg-gray-900;
+  }
+
+  .register-box {
+    @apply bg-gray-800 p-8 rounded shadow-md w-full max-w-md;
+  }
+
+  .register-title {
+    @apply text-2xl font-bold text-white mb-6;
+  }
+
+  .register-formGroup {
+    @apply mb-4;
+  }
+
+  .register-label {
+    @apply block text-gray-300 mb-1;
+  }
+
+  .register-input {
+    @apply w-full p-2 rounded bg-gray-700 text-white border border-gray-600;
+  }
+
+  .register-button {
+    @apply w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded;
+  }
+
+  .register-textInfo {
+    @apply text-gray-400 mt-4;
+  }
+
+  .register-link {
+    @apply text-blue-500 hover:underline;
+  }
+  
+  /* Home */
   .home-container {
     @apply h-screen flex flex-col bg-gray-900 text-white m-0 p-0;
   }
@@ -50,3 +125,55 @@
     @apply text-sm mt-2;
   }
   
+  /* Navbar */
+  .navbar {
+    @apply fixed top-0 left-0 w-full bg-gray-800 text-white z-50;
+  }
+
+  .navbar-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .navbar-inner {
+    @apply flex justify-between h-16 items-center;
+  }
+
+  .navbar-brand {
+    @apply flex-shrink-0 text-xl font-bold;
+  }
+
+  .navbar-hamburger {
+    @apply flex sm:hidden;
+  }
+  
+  .navbar-hamburger-button {
+    @apply inline-flex items-center justify-center p-2 rounded-md hover:bg-gray-700 focus:outline-none;
+  }
+
+  .navbar-hamburger-icon {
+    @apply block h-6 w-6;
+  }
+
+  .navbar-desktop-menu {
+    @apply hidden sm:flex sm:items-center space-x-4;
+  }
+
+  .navbar-menu-item {
+    @apply hover:bg-gray-700 px-3 py-2 rounded-md;
+  }
+
+  .navbar-mobile-menu {
+    @apply sm:hidden;
+  }
+
+  .navbar-mobile-inner {
+    @apply px-2 pt-2 pb-3 space-y-1;
+  }
+
+  .navbar-mobile-item {
+    @apply block px-3 py-2 rounded-md hover:bg-gray-700 text-left;
+  }
+
+  .navbar-mobile-button {
+    @apply w-full;
+  }
