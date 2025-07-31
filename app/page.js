@@ -10,7 +10,7 @@ import DxfParser from "dxf-parser";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-import SlickCommLogo from "../app/SlickCommLogo_100_blue.png";
+import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
@@ -313,10 +313,10 @@ export default function Home() {
         {!downloadFilename ? (
           <div className="home-initialScreen">
             <Image
-              src={SlickCommLogo}
-              alt="SlickComm Logo"
-              width={100}
-              height={100}
+              src={ChatCADLogo}
+              alt="ChatCAD-Logo"
+              width={150}
+              height={150}
               className="home-initialLogo"
             />
             <h1 className="home-initialTitle">ChatCAD</h1>
@@ -348,7 +348,7 @@ export default function Home() {
             </button>
           )}
         </div>
-        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren und Oberflächenbefestigungen.</p>
+        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
       </div>
     </div>
   );
