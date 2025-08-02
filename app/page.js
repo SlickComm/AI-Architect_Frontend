@@ -33,6 +33,9 @@ export default function Home() {
 
   const [gptAnswer, setGptAnswer] = useState("");
 
+  const [mapping,   setMapping]   = useState([]);
+  const [pdfBuffer, setPdfBuffer] = useState(null);
+
   const viewerContainerRef = useRef(null);
 
   useEffect(() => {
@@ -270,7 +273,65 @@ export default function Home() {
     } catch (err) {
       console.error("Fehler bei remove-element:", err);
     }
-  }  
+  }
+  
+  async function handleMatchLv() {
+    const resp = await fetch(`${baseUrl}/match-lv/`, {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify({ session_id: sessionId }),
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text();
+      console.error("match-lv Error:", txt);
+      alert("match-lv Error: " + txt);
+      return;
+    }
+
+    const data = await resp.json();
+    console.log("«/match-lv» Response", data);
+    setMapping(data.mapping ?? []);
+  }
+
+  function handleDownloadPdf() {
+    if (!pdfBuffer) return;
+
+    const url  = URL.createObjectURL(pdfBuffer);
+    const link = document.createElement("a");
+    link.href        = url;
+    link.download    = "Rechnung.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleGenerateInvoice() {
+    const payload = {
+      session_id: sessionId,
+      mapping: mapping.map(r => ({
+        aufmass : r.aufmass,
+        qty     : r.qty,      
+        L       : r.L,
+        B       : r.B,
+        T       : r.T,
+        match   : r.match        
+      }))
+    };
+
+
+    console.log("Invoice-Payload ➜", payload);
+
+    const resp = await fetch(`${baseUrl}/invoice/`, {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify(payload),
+    });
+
+    const blob = await resp.blob();
+    setPdfBuffer(blob);
+  }
 
   // --------------------------
   // onKeyDown → ENTER
@@ -329,7 +390,9 @@ export default function Home() {
 
       {/* Eingabe unten */}
       <div className="home-inputContainer">
+
         {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
+
         <div className="home-action">
           <input
             type="text"
@@ -339,6 +402,7 @@ export default function Home() {
             onChange={(e) => setElementDescription(e.target.value)}
             onKeyDown={handleKeyDown}
           />
+
           {downloadFilename && (
             <button
               className="home-download" 
@@ -347,7 +411,71 @@ export default function Home() {
               Download
             </button>
           )}
+
+          {downloadFilename && (
+            <button className="home-download" onClick={handleMatchLv}>
+              Matching
+            </button>
+          )}
+
+          {pdfBuffer && (
+            <button className="home-download" onClick={handleDownloadPdf}>
+              PDF
+            </button>
+          )}
         </div>
+
+        {mapping.length > 0 && (
+          <div className="lv-table">
+            {mapping.map((row, idx) => {
+                const best = row.match;                                 // nur noch diesen Key
+                const alternatives =
+                  (row.alternatives ?? [])
+                    // nur LV-Objekte mit Positions-Nr. zulassen
+                    .filter(a => (a.Pos ?? a.pos))
+                    .map(a => ({ lv: a }));
+
+                return (
+                  <div key={idx} className="lv-row">
+                    <span className="aufmass grow">{row.aufmass}</span>
+
+                    <select
+                      value={best.Pos ?? best.pos}                       // direkt im LV-Objekt
+                      onChange={e => {
+                        const pos = e.target.value;
+                        const altIdx = alternatives.findIndex(a =>
+                          (a.lv.Pos ?? a.lv.pos) === pos);
+                        if (altIdx !== -1) {
+                          const m = structuredClone(mapping);
+                          m[idx].match = alternatives[altIdx].lv;
+                          setMapping(m);
+                        }
+                      }}
+                    >
+                      {[best, ...alternatives.map(a => a.lv)].map(opt => (
+                        <option
+                          key={opt.Pos ?? opt.pos}
+                          value={opt.Pos ?? opt.pos}
+                        >
+                          {(opt.T1 ?? opt.t1 ?? "-")}.
+                          {(opt.T2 ?? opt.t2 ?? "-")}.
+                          {(opt.Pos ?? opt.pos)}
+                          {" · "}
+                          {(opt.category ?? opt.description ?? "")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })
+            }
+
+            <button className="btn-primary mt-4" onClick={handleGenerateInvoice}>
+              Rechnung erzeugen
+            </button>
+          </div>
+        )}
+
         <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
       </div>
     </div>
