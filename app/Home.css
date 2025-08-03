@@ -122,9 +122,13 @@
   }
 
   .home-hint {
-    @apply text-sm mt-2;
+    @apply text-sm m-1;
   }
   
+  .hidden {
+    display: none;
+  }
+
   /* Navbar */
   .navbar {
     @apply fixed top-0 left-0 w-full bg-gray-800 text-white z-50;
@@ -176,4 +180,78 @@
 
   .navbar-mobile-button {
     @apply w-full;
+  }
+
+  /* ---------- Review-Pane ---------- */
+  .review-pane {
+    @apply flex flex-col gap-4 pt-10 pb-10 pl-8 pr-8 overflow-y-auto h-[calc(100vh-theme(spacing.48))];
+  }
+
+  .rp-heading {
+    @apply text-lg mt-10 font-semibold text-gray-200;
+  }
+
+  .rp-list {
+    @apply flex flex-col divide-y divide-gray-700;
+  }
+
+  .rp-row {
+    @apply grid grid-cols-[auto_1fr_auto] gap-4 py-3 items-center;
+  }
+
+  .rp-row-ok {
+    @apply bg-gray-800/50;
+  }
+
+  .rp-icon {
+    @apply w-5 h-5 text-green-500;
+  }
+
+  .rp-aufmass {
+    @apply text-sm text-gray-300;
+  }
+
+  .rp-pos {
+    @apply font-mono text-sm text-gray-200;
+  }
+
+  .rp-desc {
+    @apply col-span-3 text-xs text-gray-400 ml-9;
+  }
+
+  .rp-select {
+    @apply border border-gray-600 bg-gray-900 text-gray-200
+          rounded px-2 py-1 text-sm focus:outline-none;
+  }
+
+  /* ---------- Step-Switcher ---------- */
+  .step-switch-wrapper {
+    @apply sticky top-16 z-40 w-full flex justify-center pt-3;
+  }
+
+  .step-switch-inner {
+    @apply inline-flex rounded-full bg-gray-700 p-1 shadow-lg;
+  }
+
+  .step-switch-btn {
+    @apply px-4 py-1.5 text-sm font-medium rounded-full transition;
+  }
+
+  .step-switch-btn--active {
+    @apply bg-blue-600 text-white shadow;
+  }
+
+  .step-switch-btn--idle {
+    @apply text-gray-300 hover:bg-gray-600/60;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn-primary {
+    @apply px-4 py-2 rounded bg-blue-600 text-white
+          hover:bg-blue-700 transition disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded bg-gray-600 text-white
+          hover:bg-gray-700 transition disabled:opacity-50;
   }

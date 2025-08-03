@@ -79,11 +79,11 @@ export default function Navbar() {
                         Home
                     </Link>
 
-                    {isLoggedIn && (
+                    {/* {isLoggedIn && (
                         <Link href="/workflow" className="navbar-menu-item">
                             Workflow
                         </Link>
-                    )}
+                    )} */}
 
                     {isLoggedIn ? (
                         <button onClick={handleLogout} className="navbar-menu-item">

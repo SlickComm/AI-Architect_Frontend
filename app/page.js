@@ -10,6 +10,9 @@ import DxfParser from "dxf-parser";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
+import ReviewPane from "./components/ReviewPane";
+import StepSwitcher from "./components/StepSwitcher";
+
 import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
 import { onAuthStateChanged } from "firebase/auth";
@@ -33,7 +36,12 @@ export default function Home() {
 
   const [gptAnswer, setGptAnswer] = useState("");
 
-  const [mapping,   setMapping]   = useState([]);
+  const [assigned, setAssigned] = useState([]);
+  const [toReview, setToReview] = useState([]);
+  const [reviewed, setReviewed] = useState([]);
+
+  const [step, setStep] = useState(1);
+  
   const [pdfBuffer, setPdfBuffer] = useState(null);
 
   const viewerContainerRef = useRef(null);
@@ -61,17 +69,17 @@ export default function Home() {
   // 2) Neu rendern, wenn dxfBuffer / downloadFilename sich ändern
   // --------------------------
   useEffect(() => {
-    if (downloadFilename && dxfBuffer && viewerContainerRef.current) {
+    if (step === 1 && downloadFilename && dxfBuffer && viewerContainerRef.current) {
       renderDXF(dxfBuffer);
     }
-  }, [downloadFilename, dxfBuffer]);
+  }, [step, downloadFilename, dxfBuffer]);
 
   // --------------------------
   // Start Session
   // --------------------------
   async function handleStartSession() {
     try {
-      const resp = await fetch(`${baseUrl}/start-session/`, {
+      const resp = await fetch(`${baseUrl}/start-session`, {
         method: "POST",
       });
 
@@ -289,9 +297,23 @@ export default function Home() {
       return;
     }
 
-    const data = await resp.json();
-    console.log("«/match-lv» Response", data);
-    setMapping(data.mapping ?? []);
+    const {assigned, to_review} = await resp.json();
+
+    setAssigned(assigned);
+    setToReview(to_review);
+  }
+
+  // Wenn aus toReview ein User-Match gewählt hat:
+  function confirmReview(idx, chosenMatch) {
+    const item = toReview[idx];
+    const done = {
+      ...item,
+      match: chosenMatch,
+      confidence: 1.0,
+    };
+
+    setReviewed(r => [...r, done]);
+    setToReview(tr => tr.filter((_, i) => i !== idx));
   }
 
   function handleDownloadPdf() {
@@ -308,18 +330,15 @@ export default function Home() {
   }
 
   async function handleGenerateInvoice() {
+    const finalMapping = [
+      ...assigned,
+      ...reviewed
+    ];
+
     const payload = {
       session_id: sessionId,
-      mapping: mapping.map(r => ({
-        aufmass : r.aufmass,
-        qty     : r.qty,      
-        L       : r.L,
-        B       : r.B,
-        T       : r.T,
-        match   : r.match        
-      }))
+      mapping: finalMapping
     };
-
 
     console.log("Invoice-Payload ➜", payload);
 
@@ -369,115 +388,69 @@ export default function Home() {
 
   return (
     <div className="home-container">
+      <StepSwitcher step={step} setStep={setStep} />
       {/* Preview-Bereich oben */}
-      <div className="home-preview">
-        {!downloadFilename ? (
-          <div className="home-initialScreen">
-            <Image
-              src={ChatCADLogo}
-              alt="ChatCAD-Logo"
-              width={150}
-              height={150}
-              className="home-initialLogo"
-            />
-            <h1 className="home-initialTitle">ChatCAD</h1>
-            <p className="home-subtitle">Create technical drawings in no time</p>
-          </div>
-        ) : (
-          <div ref={viewerContainerRef} className="home-viewer" />
-        )}
-      </div>
-
-      {/* Eingabe unten */}
-      <div className="home-inputContainer">
-
-        {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
-
-        <div className="home-action">
-          <input
-            type="text"
-            className="home-input"
-            placeholder="Befehl eingeben... (Enter zum Ausführen)"
-            value={elementDescription}
-            onChange={(e) => setElementDescription(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-
-          {downloadFilename && (
-            <button
-              className="home-download" 
-              onClick={handleDownloadClick}
-            >
-              Download
-            </button>
-          )}
-
-          {downloadFilename && (
-            <button className="home-download" onClick={handleMatchLv}>
-              Matching
-            </button>
-          )}
-
-          {pdfBuffer && (
-            <button className="home-download" onClick={handleDownloadPdf}>
-              PDF
-            </button>
+      {step === 1 && (
+        <div className="home-preview">
+          {downloadFilename ? (
+            /* DXF-Viewer */
+            <div ref={viewerContainerRef} className="home-viewer" />
+          ) : (
+            /* Initialer Platzhalter */
+            <div className="home-initialScreen">
+              <Image src={ChatCADLogo} alt="ChatCAD-Logo" width={150} height={150} />
+              <h1 className="home-initialTitle">ChatCAD</h1>
+              <p className="home-subtitle">Create technical drawings in no time</p>
+            </div>
           )}
         </div>
+      )}
 
-        {mapping.length > 0 && (
-          <div className="lv-table">
-            {mapping.map((row, idx) => {
-                const best = row.match;                                 // nur noch diesen Key
-                const alternatives =
-                  (row.alternatives ?? [])
-                    // nur LV-Objekte mit Positions-Nr. zulassen
-                    .filter(a => (a.Pos ?? a.pos))
-                    .map(a => ({ lv: a }));
+      {step === 1 && (
+        <div className="home-inputContainer">
+          {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
+            <div className="home-action">
+              <input
+                type="text"
+                className="home-input"
+                placeholder="Befehl eingeben... (Enter zum Ausführen)"
+                value={elementDescription}
+                onChange={(e) => setElementDescription(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
 
-                return (
-                  <div key={idx} className="lv-row">
-                    <span className="aufmass grow">{row.aufmass}</span>
+              {downloadFilename && (
+                <button
+                  className="home-download" 
+                  onClick={handleDownloadClick}
+                >
+                  Download
+                </button>
+              )}
 
-                    <select
-                      value={best.Pos ?? best.pos}                       // direkt im LV-Objekt
-                      onChange={e => {
-                        const pos = e.target.value;
-                        const altIdx = alternatives.findIndex(a =>
-                          (a.lv.Pos ?? a.lv.pos) === pos);
-                        if (altIdx !== -1) {
-                          const m = structuredClone(mapping);
-                          m[idx].match = alternatives[altIdx].lv;
-                          setMapping(m);
-                        }
-                      }}
-                    >
-                      {[best, ...alternatives.map(a => a.lv)].map(opt => (
-                        <option
-                          key={opt.Pos ?? opt.pos}
-                          value={opt.Pos ?? opt.pos}
-                        >
-                          {(opt.T1 ?? opt.t1 ?? "-")}.
-                          {(opt.T2 ?? opt.t2 ?? "-")}.
-                          {(opt.Pos ?? opt.pos)}
-                          {" · "}
-                          {(opt.category ?? opt.description ?? "")}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })
-            }
-
-            <button className="btn-primary mt-4" onClick={handleGenerateInvoice}>
-              Rechnung erzeugen
-            </button>
+              {downloadFilename && (
+                <button className="home-download" onClick={handleMatchLv}>
+                  Verknüpfen
+                </button>
+              )}
           </div>
-        )}
+        </div>
+      )}
+        
+      {step === 2 && (
+        <ReviewPane
+          assigned={assigned}
+          toReview={toReview}
+          onSelect={confirmReview}
+          onInvoice={handleGenerateInvoice}
+          onDownloadPDF={handleDownloadPdf}
+          pdfReady={!!pdfBuffer}
+        />
+      )}
 
+      {step === 1 && (
         <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
-      </div>
+      )}
     </div>
   );
 }
