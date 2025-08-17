@@ -12,6 +12,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
 import ReviewPane from "./components/ReviewPane";
 import StepSwitcher from "./components/StepSwitcher";
+import Tooltip from "./components/Tooltip";
+import EditAufmassModal from "./components/EditAufmassModal";
 
 import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
@@ -41,8 +43,13 @@ export default function Home() {
   const [reviewed, setReviewed] = useState([]);
 
   const [step, setStep] = useState(1);
-  
-  const [pdfBuffer, setPdfBuffer] = useState(null);
+
+  const [needsSync, setNeedsSync] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const [aufmassRows, setAufmassRows] = useState([]);
+  const [aufmassEditorOpen, setAufmassEditorOpen] = useState(false);
+  const [aufmassText, setAufmassText] = useState("");
 
   const viewerContainerRef = useRef(null);
 
@@ -73,6 +80,17 @@ export default function Home() {
       renderDXF(dxfBuffer);
     }
   }, [step, downloadFilename, dxfBuffer]);
+
+  useEffect(() => {
+    const aufmassIsPresent = !!downloadFilename;
+    
+    if (step === 2 && aufmassIsPresent && needsSync) {
+      (async () => {
+        await handleMatchLv();
+        setNeedsSync(false);
+      })();
+    }
+  }, [step, needsSync, downloadFilename]);
 
   // --------------------------
   // Start Session
@@ -114,6 +132,7 @@ export default function Home() {
       });
       const data = await resp.json();
       if (data.status === "ok") {
+        markSessionDirty();
         setGptAnswer(data.answer);
         console.log("Aktualisiertes JSON:", data.updated_json);
       } else {
@@ -148,6 +167,8 @@ export default function Home() {
 
       setDxfBuffer(arrayBuffer);
       setDownloadFilename(filename);
+
+      await loadAufmassTextFromSession();
 
     } catch (err) {
       console.error("Fehler bei generate-dxf:", err);
@@ -316,40 +337,101 @@ export default function Home() {
     setToReview(tr => tr.filter((_, i) => i !== idx));
   }
 
-  function handleDownloadPdf() {
-    if (!pdfBuffer) return;
+  async function handleGenerateAndDownload() {
+    if (isGeneratingPdf) return;           // doppelklick-Schutz
+    setIsGeneratingPdf(true);
+    try {
+      // 1) PDF vom Server holen
+      const mapping = [...assigned, ...reviewed];
+      const resp = await fetch(`${baseUrl}/invoice/`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ session_id: sessionId, mapping }),
+      });
+      const blob = await resp.blob();
 
-    const url  = URL.createObjectURL(pdfBuffer);
-    const link = document.createElement("a");
-    link.href        = url;
-    link.download    = "Rechnung.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      // 2) sofort downloaden
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Rechnung.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF-Fehler:", err);
+      alert("PDF konnte nicht erstellt werden.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   }
 
-  async function handleGenerateInvoice() {
-    const finalMapping = [
-      ...assigned,
-      ...reviewed
-    ];
+  function handleReplace({ source, index }, newRow) {
+    if (source === "assigned") {
+      setAssigned((arr) =>
+        arr.map((it, i) =>
+          i === index ? { ...it, match: { ...newRow } } : it
+        )
+      );
+    } else if (source === "toReview") {
+      // simple Variante: nur in-place ersetzen (oder direkt ins "assigned" schieben)
+      setToReview((arr) =>
+        arr.map((it, i) =>
+          i === index ? { ...it, match: { ...newRow } } : it
+        )
+      );
+    }
+  }
 
-    const payload = {
-      session_id: sessionId,
-      mapping: finalMapping
-    };
+  // helper: Aufmaßtext aus der Session lesen
+  async function loadAufmassTextFromSession() {
+    if (!sessionId) return;
+    try {
+      const resp = await fetch(`${baseUrl}/session?session_id=${sessionId}`);
+      const data = await resp.json();
+      const items = Array.isArray(data?.elements) ? data.elements : [];
+      // letztes "aufmass"-Element nehmen
+      const last = [...items].reverse().find(e => (e.type || "").toLowerCase() === "aufmass");
+      setAufmassText(last?.text || "");
+    } catch (e) {
+      console.error("Aufmaß-Text laden fehlgeschlagen:", e);
+    }
+  }
 
-    console.log("Invoice-Payload ➜", payload);
+   async function openAufmassEditor() {
+    try {
+      const resp = await fetch(`${baseUrl}/get-aufmass-lines/?session_id=${sessionId}`);
+      if (resp.ok) {
+        const { lines } = await resp.json();
+        if (lines?.length) {
+          setAufmassRows(lines.map(t => ({ text: t, note: "" })));
+        } else if (!aufmassText) {
+          // Fallback: Aufmaß-Text aus Session laden
+          await loadAufmassTextFromSession();
+        }
+      }
+    } catch {}
+    
+    setAufmassEditorOpen(true);
+  }
 
-    const resp = await fetch(`${baseUrl}/invoice/`, {
-      method : "POST",
+
+  async function saveAufmassRows(newRows) {
+    // newRows: [{text, note}] vom Modal
+    const lines = newRows.map(r => (r.text ?? "").trim()).filter(Boolean);
+
+    // 1) an Backend speichern
+    await fetch(`${baseUrl}/set-aufmass-lines/`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body   : JSON.stringify(payload),
+      body: JSON.stringify({ session_id: sessionId, lines }),
     });
 
-    const blob = await resp.blob();
-    setPdfBuffer(blob);
+    setAufmassRows(newRows);
+
+    // 2) DXF neu generieren + anzeigen
+    await handleGenerateDxf();
   }
 
   // --------------------------
@@ -386,9 +468,11 @@ export default function Home() {
     return <div>Weiterleitung zum Anmelden...</div>;
   }
 
+  function markSessionDirty() { setNeedsSync(true); }
+
   return (
     <div className="home-container">
-      <StepSwitcher step={step} setStep={setStep} />
+      <StepSwitcher step={step} setStep={setStep} onAuxClick={openAufmassEditor} />
       {/* Preview-Bereich oben */}
       {step === 1 && (
         <div className="home-preview">
@@ -410,6 +494,8 @@ export default function Home() {
         <div className="home-inputContainer">
           {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
             <div className="home-action">
+              <Tooltip />
+
               <input
                 type="text"
                 className="home-input"
@@ -427,12 +513,7 @@ export default function Home() {
                   Download
                 </button>
               )}
-
-              {downloadFilename && (
-                <button className="home-download" onClick={handleMatchLv}>
-                  Verknüpfen
-                </button>
-              )}
+              
           </div>
         </div>
       )}
@@ -442,15 +523,26 @@ export default function Home() {
           assigned={assigned}
           toReview={toReview}
           onSelect={confirmReview}
-          onInvoice={handleGenerateInvoice}
-          onDownloadPDF={handleDownloadPdf}
-          pdfReady={!!pdfBuffer}
+          onGeneratePdf={handleGenerateAndDownload}
+          isGenerating={isGeneratingPdf}
+          loadingAssigned={step === 2 && needsSync}
+          loadingReview={step === 2 && needsSync} 
+          onReplace={handleReplace}
         />
       )}
 
       {step === 1 && (
         <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
       )}
+
+      {/* Aufmaß-Editor Modal */}
+      <EditAufmassModal
+        open={aufmassEditorOpen}
+        onClose={() => setAufmassEditorOpen(false)}
+        rows={aufmassRows}
+        rawText={aufmassText}           
+        onSave={(rows) => saveAufmassRows(rows)}
+      />
     </div>
   );
 }

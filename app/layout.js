@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "CADchat",
+  title: "ChatCAD",
   description: "Generate technical drawings in no time",
 };
 
