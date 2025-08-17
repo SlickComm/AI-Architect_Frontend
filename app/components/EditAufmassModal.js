@@ -42,14 +42,14 @@ export default function AufmassEditorModal({ open, onClose, rows = [], onSave, r
   // ESC & Fokus
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => e.key === "Escape" && onClose();
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     const t = setTimeout(() => closeRef.current?.focus(), 0);
     return () => {
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

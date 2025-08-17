@@ -4,23 +4,40 @@ import { useEffect, useState, useRef } from "react";
 
 import LvTable from "./LvTable";
 
-// Fake Data
-import lvTabs from "../data/lv_tabs";
-
 export default function EditAssignmentModal({ open, onClose, item, onSave }) {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  
   const closeRef = useRef(null);
+
   const [activeTab, setActiveTab] = useState(0);
   const [selectedKey, setSelectedKey] = useState(null);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [lvTabs, setLvTabs] = useState([]);
+  const [lvLoading, setLvLoading] = useState(false);
+  const [lvError, setLvError] = useState(null);
+  const [search, setSearch] = useState("");
 
-  // reset bei (neu) öffnen
   useEffect(() => {
     if (open) {
       setActiveTab(0);
       setSelectedKey(null);
       setSelectedRow(null);
+      setLvLoading(true);
+      setLvError(null);
+      const url = new URL(`${baseUrl}/lv`);
+      url.searchParams.set("format", "catalogs");
+      if (search) url.searchParams.set("q", search);
+      fetch(url.toString())
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(data => setLvTabs(data.tabs || []))
+        .catch(async e => {
+          let msg = "LV konnte nicht geladen werden.";
+          try { msg = await e.text(); } catch {}
+          setLvError(msg);
+        })
+        .finally(() => setLvLoading(false));
     }
-  }, [open]);
+  }, [open, search]);
 
   // ESC schließt; Fokus setzen
   useEffect(() => {
@@ -121,13 +138,18 @@ export default function EditAssignmentModal({ open, onClose, item, onSave }) {
               </button>
             ))}
           </div>
-
-          {/* Tabelle des aktiven Tabs */}
-          <LvTable
-            rows={lvTabs[activeTab]?.rows || []}
-            selectedKey={selectedKey}
-            onSelect={handleSelect}
-          />
+          
+          {lvLoading ? (
+            <div className="text-sm text-gray-400 mt-2">LV wird geladen…</div>
+          ) : lvError ? (
+            <div className="text-sm text-red-400 mt-2">{lvError}</div>
+          ) : (
+            <LvTable
+              rows={lvTabs[activeTab]?.rows || []}
+              selectedKey={selectedKey}
+              onSelect={handleSelect}
+            />
+          )}
         </div>
 
         {/* Footer */}
