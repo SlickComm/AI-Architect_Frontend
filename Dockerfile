@@ -14,7 +14,8 @@ RUN npm install --frozen-lockfile
 COPY . .
 
 # 6) Next.js Build Schritt mit Fehlerbehebung
-RUN npx tailwindcss init && npm run build
+# RUN npx tailwindcss init && npm run build
+RUN npm run build
 
 # 7) Exponiere den Port
 EXPOSE 3000

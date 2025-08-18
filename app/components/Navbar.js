@@ -7,8 +7,6 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../firebase";
 
-import '../Home.css';
-
 export default function Navbar() {
   const router = useRouter();
 

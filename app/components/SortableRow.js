@@ -1,59 +1,79 @@
 "use client";
 
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-
-export default function SortableRow({ id, index, row, onChange, onRemove }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
+export default function SortableRow({
+  id,
+  index,
+  row,
+  onChange,
+  onRemove,
+  onDragStart,
+  onDragOverRow,
+  onDropRow,
+  onDragEnd,
+  isDragging = false,
+  isOver = false,
+}) {
   return (
-    <div ref={setNodeRef} style={style} className="tbl-row">
-      <div className="tbl-td w-8 flex items-center">
+    /*<div
+      className={[
+        "grid grid-cols-[36px_56px_1fr_44px] gap-x-3 items-center",
+        "rounded-md",
+        isOver ? "ring-1 ring-white/20" : "",
+        isDragging ? "opacity-50" : "",
+      ].join(" ")}
+      onDragOver={(e) => { e.preventDefault(); onDragOverRow?.(id); }}
+      onDrop={(e) => { e.preventDefault(); onDropRow?.(id, e); }}
+    >
+      <div className="w-9 flex items-center">
         <button
           type="button"
-          className="btn-ghost"
+          className="btn-ghost select-none cursor-grab active:cursor-grabbing"
           title="Ziehen zum Sortieren"
           aria-label="Ziehen zum Sortieren"
-          {...attributes}
-          {...listeners}
+          draggable
+          onDragStart={(e) => onDragStart?.(id, e)}
+          onDragEnd={onDragEnd}
         >
           ⋮⋮
         </button>
       </div>
 
-      <div className="tbl-td font-mono text-xs text-gray-400">{index + 1}</div>
+      <div className="font-mono text-xs text-gray-400">{index + 1}</div>
 
-      <div className="tbl-td">
+      <div>
         <input
-          className="tbl-input"
+          className="tbl-input w-full"
           value={row.text ?? ""}
-          placeholder='z. B. "Baugraben 1: l=5,0m b=2,0 t=2,0m"'
+          placeholder='z. B. "Baugraben 1: l=5,0 m  b=2,0 m  t=2,0 m"'
           onChange={(e) => onChange({ text: e.target.value })}
         />
       </div>
 
-      <div className="tbl-td flex justify-end">
+      <div className="flex justify-end">
         <button
-            type="button"
-            className="btn-icon danger"
-            aria-label="Zeile löschen"
-            title="Zeile löschen"
-            onClick={onRemove}
+          type="button"
+          className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-transparent hover:bg-white/5 hover:border-white/20 group"
+          aria-label="Zeile löschen"
+          title="Zeile löschen"
+          onClick={onRemove}
         >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-[18px] h-[18px] group-hover:stroke-[#ff6b6b]"
+          >
             <path d="M3 6h18" />
             <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
             <path d="M19 6l-1.2 13.5A2 2 0 0 1 15.82 21H8.18a2 2 0 0 1-1.98-1.5L5 6" />
             <path d="M10 11v6M14 11v6" />
-            </svg>
+          </svg>
         </button>
-        </div>
-    </div>
+      </div>
+    </div>*/
+    <div>Test</div>
   );
 }

@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 
-import "../Home.css";
-
 export default function LoginPage() {
   const router = useRouter();
 
