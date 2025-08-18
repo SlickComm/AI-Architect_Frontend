@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 import EditAssignmentModal from "./EditAssignmentModal";
 
-export default function ReviewPane({ assigned, toReview, onSelect, onGeneratePdf, isGenerating, loadingAssigned = false, loadingReview = false, onReplace }) {
+export default function ReviewPane({ assigned, toReview, onReplace, onGeneratePdf, isGenerating, loadingAssigned = false, loadingReview = false }) {
+  const savingRef = useRef(false);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -14,8 +16,15 @@ export default function ReviewPane({ assigned, toReview, onSelect, onGeneratePdf
   }
 
   function handleSave(newRow) {
-    if (!editing) return;
-    onReplace?.(editing, newRow);
+    if (!editing || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      onReplace?.({ source: editing.source, index: editing.index }, newRow);
+    } finally {
+      savingRef.current = false;
+      setModalOpen(false);
+      setEditing(null);
+    }
   }
 
   return (
@@ -72,7 +81,7 @@ export default function ReviewPane({ assigned, toReview, onSelect, onGeneratePdf
             <div className="rp-left">
               <div className="rp-header">
                 <span className="rp-aufmass">{r.aufmass}</span>
-                <select
+                {/*<select
                   className="rp-select"
                   defaultValue=""
                   onChange={(e) => {
@@ -86,7 +95,7 @@ export default function ReviewPane({ assigned, toReview, onSelect, onGeneratePdf
                       {alt.T1}.{alt.T2}.{alt.Pos} · {alt.description}
                     </option>
                   ))}
-                </select>
+                </select>*/}
               </div>
             </div>
 

@@ -39,7 +39,6 @@ export default function EditAssignmentModal({ open, onClose, item, onSave }) {
     }
   }, [open, search]);
 
-  // ESC schließt; Fokus setzen
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -58,13 +57,23 @@ export default function EditAssignmentModal({ open, onClose, item, onSave }) {
     : "—";
 
   const handleSelect = (key, row) => {
-    setSelectedKey(key);
-    setSelectedRow(row || null);
+    setSelectedKey(key ?? row?.id ?? null);
+    setSelectedRow(row ?? null);
   };
+
+  function normalizeMatch(row) {
+    if (!row) return null;
+    return {
+      T1: row.T1 ?? row.t1 ?? row.group1 ?? row.chapter ?? "",
+      T2: row.T2 ?? row.t2 ?? row.group2 ?? row.section ?? "",
+      Pos: row.Pos ?? row.pos ?? row.number ?? "",
+      description: row.description ?? row.text ?? row.title ?? "",
+    };
+  }
 
   const handleSave = () => {
     if (!selectedRow) return;
-    onSave?.(selectedRow);
+    onSave?.(normalizeMatch(selectedRow));
     onClose();
   };
 

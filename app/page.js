@@ -27,6 +27,8 @@ const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 export default function Home() {
   const router = useRouter();
 
+  const lastProcessedRef = useRef(0);
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -44,14 +46,18 @@ export default function Home() {
 
   const [step, setStep] = useState(1);
 
-  const [needsSync, setNeedsSync] = useState(false);
+  const [syncTick, setSyncTick] = useState(0);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const [aufmassRows, setAufmassRows] = useState([]);
   const [aufmassEditorOpen, setAufmassEditorOpen] = useState(false);
   const [aufmassText, setAufmassText] = useState("");
 
+  const [hasPositions, setHasPositions] = useState(false);
+
   const viewerContainerRef = useRef(null);
+
+  const hasPendingSync = step === 2 && !!downloadFilename && (syncTick !== lastProcessedRef.current);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -83,14 +89,16 @@ export default function Home() {
 
   useEffect(() => {
     const aufmassIsPresent = !!downloadFilename;
-    
-    if (step === 2 && aufmassIsPresent && needsSync) {
-      (async () => {
-        await handleMatchLv();
-        setNeedsSync(false);
-      })();
-    }
-  }, [step, needsSync, downloadFilename]);
+    if (step !== 2 || !aufmassIsPresent) return;
+    if (syncTick === 0 || syncTick === lastProcessedRef.current) return;
+
+    let cancelled = false;
+    (async () => {
+      await handleMatchLv().catch(console.error);
+      if (!cancelled) lastProcessedRef.current = syncTick;
+    })();
+    return () => { cancelled = true; };
+  }, [step, downloadFilename, syncTick]);
 
   // --------------------------
   // Start Session
@@ -134,6 +142,8 @@ export default function Home() {
       if (data.status === "ok") {
         markSessionDirty();
         setGptAnswer(data.answer);
+
+        setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
         console.log("Aktualisiertes JSON:", data.updated_json);
       } else {
         console.error("Fehler bei add-element:", data);
@@ -261,6 +271,9 @@ export default function Home() {
       const data = await resp.json();
       if (data.status === "ok") {
         setGptAnswer(data.answer);
+
+        setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
+        markSessionDirty();
         console.log("Aktualisiertes JSON nach Edit:", data.updated_json);
       } else {
         console.error("Fehler bei edit-element:", data);
@@ -294,6 +307,9 @@ export default function Home() {
       const data = await resp.json();
       if (data.status === "ok") {
         setGptAnswer(data.answer);
+
+        setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
+        markSessionDirty();
         console.log("Aktualisiertes JSON nach Remove:", data.updated_json);
       } else {
         console.error("Fehler bei remove-element:", data);
@@ -367,21 +383,37 @@ export default function Home() {
     }
   }
 
-  function handleReplace({ source, index }, newRow) {
+  function handleReplace({ source, index }, newMatch) {
     if (source === "assigned") {
-      setAssigned((arr) =>
-        arr.map((it, i) =>
-          i === index ? { ...it, match: { ...newRow } } : it
-        )
+      setAssigned(arr =>
+        arr.map((it, i) => (i === index ? { ...it, match: { ...newMatch } } : it))
       );
     } else if (source === "toReview") {
-      // simple Variante: nur in-place ersetzen (oder direkt ins "assigned" schieben)
-      setToReview((arr) =>
-        arr.map((it, i) =>
-          i === index ? { ...it, match: { ...newRow } } : it
-        )
-      );
+      setToReview(prev => {
+        const item = prev[index];
+        const rest = prev.filter((_, i) => i !== index);
+        const moved = { ...item, match: { ...newMatch }, confidence: 1.0 };
+
+        setAssigned(a => {
+          const exists = a.some(x =>
+            x.aufmass === moved.aufmass &&
+            x.match?.T1 === moved.match?.T1 &&
+            x.match?.T2 === moved.match?.T2 &&
+            x.match?.Pos === moved.match?.Pos
+          );
+          return exists ? a : [...a, moved];
+        });
+
+        return rest;
+      });
     }
+  }
+
+  function hasAnyPositions(items) {
+    return items.some((e) => {
+      const t = (e?.type || "").toLowerCase();
+      return t && t !== "aufmass" && t !== "aufmass_override";
+    });
   }
 
   // helper: Aufmaßtext aus der Session lesen
@@ -391,7 +423,9 @@ export default function Home() {
       const resp = await fetch(`${baseUrl}/session?session_id=${sessionId}`);
       const data = await resp.json();
       const items = Array.isArray(data?.elements) ? data.elements : [];
-      // letztes "aufmass"-Element nehmen
+      
+      setHasPositions(hasAnyPositions(items));
+
       const last = [...items].reverse().find(e => (e.type || "").toLowerCase() === "aufmass");
       setAufmassText(last?.text || "");
     } catch (e) {
@@ -432,6 +466,7 @@ export default function Home() {
 
     // 2) DXF neu generieren + anzeigen
     await handleGenerateDxf();
+    markSessionDirty();
   }
 
   // --------------------------
@@ -468,11 +503,11 @@ export default function Home() {
     return <div>Weiterleitung zum Anmelden...</div>;
   }
 
-  function markSessionDirty() { setNeedsSync(true); }
+  function markSessionDirty() { setSyncTick(t => t + 1); }
 
   return (
     <div className="home-container">
-      <StepSwitcher step={step} setStep={setStep} onAuxClick={openAufmassEditor} />
+      <StepSwitcher step={step} setStep={setStep} onAuxClick={openAufmassEditor} hasPositions={hasPositions}/>
       {/* Preview-Bereich oben */}
       {step === 1 && (
         <div className="home-preview">
@@ -517,16 +552,15 @@ export default function Home() {
           </div>
         </div>
       )}
-        
+
       {step === 2 && (
         <ReviewPane
           assigned={assigned}
           toReview={toReview}
-          onSelect={confirmReview}
           onGeneratePdf={handleGenerateAndDownload}
           isGenerating={isGeneratingPdf}
-          loadingAssigned={step === 2 && needsSync}
-          loadingReview={step === 2 && needsSync} 
+          loadingAssigned={hasPendingSync}
+          loadingReview={hasPendingSync}
           onReplace={handleReplace}
         />
       )}

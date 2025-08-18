@@ -1,12 +1,13 @@
 "use client";
 
-export default function StepSwitcher({ step, setStep, onAuxClick }) {
+export default function StepSwitcher({ step, setStep, onAuxClick, hasPositions = false, }) {
   const tabs = [
     { id: 1, label: "Aufmaß"   },
     { id: 2, label: "Rechnung" },
   ];
 
   const isAufmass = step === 1;
+  const showPencil = isAufmass && hasPositions;
 
   return (
     <div className="step-switch-wrapper">
@@ -26,7 +27,7 @@ export default function StepSwitcher({ step, setStep, onAuxClick }) {
         <div className="step-mini-slot">
           <button
             type="button"
-            className={`step-mini-btn ${!isAufmass ? "invisible pointer-events-none" : ""}`}
+            className={`step-mini-btn ${!showPencil ? "invisible pointer-events-none" : ""}`}
             onClick={onAuxClick || (() => {})}
             aria-label="Aufmaß bearbeiten"
             title="Aufmaß bearbeiten"
