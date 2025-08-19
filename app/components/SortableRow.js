@@ -14,7 +14,7 @@ export default function SortableRow({
   isOver = false,
 }) {
   return (
-    /*<div
+    <div
       className={[
         "grid grid-cols-[36px_56px_1fr_44px] gap-x-3 items-center",
         "rounded-md",
@@ -73,7 +73,6 @@ export default function SortableRow({
           </svg>
         </button>
       </div>
-    </div>*/
-    <div>Test</div>
+    </div>
   );
 }

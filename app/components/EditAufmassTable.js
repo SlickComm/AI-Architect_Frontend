@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 
-//import SortableRow from "./SortableRow";
+import SortableRow from "./SortableRow";
 
 export default function EditableAufmassTable({ rows = [], onChange }) {
   const [draggingId, setDraggingId] = useState(null);
@@ -64,7 +64,7 @@ export default function EditableAufmassTable({ rows = [], onChange }) {
         <div className="tbl-th w-12" />
       </div>
 
-      {/*<div className="space-y-2">
+      <div className="space-y-2">
         {rows.map((row, i) => {
           const id = ids[i];
           return (
@@ -104,7 +104,7 @@ export default function EditableAufmassTable({ rows = [], onChange }) {
             }}
           />
         )}
-      </div>*/}
+      </div>
 
       <div className="mt-3">
         <button type="button" className="btn-secondary" onClick={addRow}>

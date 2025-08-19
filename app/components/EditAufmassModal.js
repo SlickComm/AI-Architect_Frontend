@@ -1,8 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
+
 import { useEffect, useRef, useState } from "react";
 
-import EditableAufmassTable from "./EditAufmassTable";
+const EditableAufmassTable = dynamic(
+  () => import('./EditAufmassTable'),
+  { ssr: false }
+);
 
 export default function AufmassEditorModal({ open, onClose, rows = [], onSave, rawText = "" }) {
   const closeRef = useRef(null);
