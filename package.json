@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^7.8.0",
     "@xyflow/react": "^12.6.0",
     "dxf-parser": "^1.1.2",
     "firebase": "^11.2.0",

@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useRef } from "react";
-
 import EditAssignmentModal from "./EditAssignmentModal";
 
-export default function ReviewPane({ assigned, toReview, onReplace, onGeneratePdf, isGenerating, loadingAssigned = false, loadingReview = false }) {
+export default function ReviewPane({
+  assigned,
+  toReview,
+  onReplace,
+  onGeneratePdf,
+  isGenerating,
+  loadingAssigned = false,
+  loadingReview = false,
+}) {
   const savingRef = useRef(false);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -27,6 +34,49 @@ export default function ReviewPane({ assigned, toReview, onReplace, onGeneratePd
     }
   }
 
+  function MatchDetails({ match }) {
+    if (!match) return null;
+    return (
+      <div className="rp-desc">
+        {/* volle Beschreibung inkl. Zeilenumbrüche */}
+        <div style={{ whiteSpace: "pre-wrap" }}>{match.description}</div>
+
+        {/* optionale Metadaten */}
+        <ul className="rp-meta mt-2 space-y-0.5">
+          {match.dn && (
+            <li>
+              <strong>DN:</strong> {match.dn}
+            </li>
+          )}
+          {match.category && (
+            <li>
+              <strong>Kategorie:</strong> {match.category}
+            </li>
+          )}
+          {match.unit && (
+            <li>
+              <strong>Einheit:</strong> {match.unit}
+            </li>
+          )}
+          {match.price != null && (
+            <li>
+              <strong>EP:</strong> {match.price}
+            </li>
+          )}
+        </ul>
+      </div>
+    );
+  }
+
+  function PosCode({ match }) {
+    if (!match) return null;
+    return (
+      <span className="rp-pos">
+        {match.T1}.{match.T2}.{match.Pos}{match.sub ? <span className="rp-sub">.{match.sub}</span> : null}
+      </span>
+    );
+  }
+
   return (
     <section className="review-pane">
       {/* sichere Treffer */}
@@ -38,11 +88,10 @@ export default function ReviewPane({ assigned, toReview, onReplace, onGeneratePd
             <div className="rp-left">
               <div className="rp-header">
                 <span className="rp-aufmass">{r.aufmass}</span>
-                <span className="rp-pos">
-                  {r.match.T1}.{r.match.T2}.{r.match.Pos}
-                </span>
+                <PosCode match={r.match} />
               </div>
-              <p className="rp-desc">{r.match.description}</p>
+
+              <MatchDetails match={r.match} />
             </div>
 
             <div className="rp-action-cell">
@@ -81,22 +130,12 @@ export default function ReviewPane({ assigned, toReview, onReplace, onGeneratePd
             <div className="rp-left">
               <div className="rp-header">
                 <span className="rp-aufmass">{r.aufmass}</span>
-                {/*<select
-                  className="rp-select"
-                  defaultValue=""
-                  onChange={(e) => {
-                    const pos = r.alternatives.find((a) => a.Pos === e.target.value);
-                    pos && onSelect(i, pos);
-                  }}
-                >
-                  <option value="" disabled>Position wählen …</option>
-                  {r.alternatives.map((alt, j) => (
-                    <option key={j} value={alt.Pos}>
-                      {alt.T1}.{alt.T2}.{alt.Pos} · {alt.description}
-                    </option>
-                  ))}
-                </select>*/}
+                {/* falls es bereits einen Top-Vorschlag gibt, zeige Code + sub */}
+                <PosCode match={r.match} />
               </div>
+
+              {/* vollen Text des Top-Vorschlags anzeigen, wenn vorhanden */}
+              <MatchDetails match={r.match} />
             </div>
 
             <div className="rp-action-cell">

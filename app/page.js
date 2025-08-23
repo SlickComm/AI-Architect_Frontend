@@ -15,10 +15,10 @@ import StepSwitcher from "./components/StepSwitcher";
 import Tooltip from "./components/Tooltip";
 import EditAufmassModal from "./components/EditAufmassModal";
 
-import ChatCADLogo from "../app/Logo_ChatCAD.png";
-
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
+
+import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -131,7 +131,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch(`${baseUrl}/add-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/add-element?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ description: elementDescription }),
@@ -162,7 +162,7 @@ export default function Home() {
     }
 
     try {
-      const resp = await fetch(`${baseUrl}/generate-dxf-by-session/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/generate-dxf-by-session?session_id=${sessionId}`, {
         method: "POST",
       });
       if (!resp.ok) {
@@ -261,7 +261,7 @@ export default function Home() {
     }
   
     try {
-      const resp = await fetch(`${baseUrl}/edit-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/edit-element?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction: elementDescription }),
@@ -297,7 +297,7 @@ export default function Home() {
     }
   
     try {
-      const resp = await fetch(`${baseUrl}/remove-element/?session_id=${sessionId}`, {
+      const resp = await fetch(`${baseUrl}/remove-element?session_id=${sessionId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruction: elementDescription }),
@@ -319,7 +319,7 @@ export default function Home() {
   }
   
   async function handleMatchLv() {
-    const resp = await fetch(`${baseUrl}/match-lv/`, {
+    const resp = await fetch(`${baseUrl}/match-lv`, {
       method : "POST",
       headers: { "Content-Type": "application/json" },
       body   : JSON.stringify({ session_id: sessionId }),
@@ -336,6 +336,9 @@ export default function Home() {
 
     setAssigned(assigned);
     setToReview(to_review);
+
+    console.log("Match LV - assigned:", assigned);
+    console.log("Match LV - to_review:", to_review);
   }
 
   // Wenn aus toReview ein User-Match gewählt hat:
@@ -357,7 +360,7 @@ export default function Home() {
     try {
       // 1) PDF vom Server holen
       const mapping = [...assigned, ...reviewed];
-      const resp = await fetch(`${baseUrl}/invoice/`, {
+      const resp = await fetch(`${baseUrl}/invoice`, {
         method : "POST",
         headers: { "Content-Type": "application/json" },
         body   : JSON.stringify({ session_id: sessionId, mapping }),
@@ -433,7 +436,7 @@ export default function Home() {
 
    async function openAufmassEditor() {
     try {
-      const resp = await fetch(`${baseUrl}/get-aufmass-lines/?session_id=${sessionId}`);
+      const resp = await fetch(`${baseUrl}/get-aufmass-lines?session_id=${sessionId}`);
       if (resp.ok) {
         const { lines } = await resp.json();
         if (lines?.length) {
@@ -454,7 +457,7 @@ export default function Home() {
     const lines = newRows.map(r => (r.text ?? "").trim()).filter(Boolean);
 
     // 1) an Backend speichern
-    await fetch(`${baseUrl}/set-aufmass-lines/`, {
+    await fetch(`${baseUrl}/set-aufmass-lines`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, lines }),
