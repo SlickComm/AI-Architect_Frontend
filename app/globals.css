@@ -110,7 +110,13 @@
   }
 
   .home-subtitle {
-    @apply mt-2;
+    @apply mt-2 mb-8;
+  }
+
+  .home-start-chat-btn {
+    @apply inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 
+           text-white font-medium rounded-lg transition-colors duration-200
+           shadow-lg hover:shadow-xl transform hover:scale-105;
   }
   
   .home-viewer {
@@ -260,7 +266,7 @@
 
   /* ---------- Step-Switcher ---------- */
   .step-switch-wrapper {
-    @apply sticky top-16 z-40 w-full flex justify-center pt-3;
+    @apply sticky top-0 z-40 w-full flex justify-center pt-3;
   }
 
   .step-switch-inner {
@@ -475,3 +481,166 @@
   
   .btn-icon > svg { @apply w-[18px] h-[18px]; }
   .btn-icon.danger:hover > svg { @apply stroke-[#ff6b6b]; }
+
+  /* ---------- Chat-Sidebar ---------- */
+  .chat-sidebar {
+    @apply fixed top-0 left-0 h-full w-80 bg-gray-800 border-r border-gray-700 
+           transform -translate-x-full transition-transform duration-300 ease-in-out
+           z-40 flex flex-col;
+  }
+
+  .chat-sidebar--open {
+    @apply translate-x-0;
+  }
+
+  .sidebar-overlay {
+    @apply fixed inset-0 bg-black/50 z-30 lg:hidden;
+  }
+
+  .sidebar-header {
+    @apply p-4 border-b border-gray-700;
+  }
+
+  .sidebar-new-chat-btn {
+    @apply w-full flex items-center gap-3 px-4 py-3 text-sm font-medium
+           bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors;
+  }
+
+  .sidebar-content {
+    @apply flex-1 overflow-y-auto p-2;
+  }
+
+  .sidebar-loading {
+    @apply flex flex-col items-center justify-center h-32 gap-2 text-gray-400;
+  }
+
+  .sidebar-empty {
+    @apply flex flex-col items-center justify-center h-32 text-center;
+  }
+
+  .sidebar-sessions {
+    @apply space-y-1;
+  }
+
+  .session-item {
+    @apply flex items-center justify-between p-3 rounded-lg cursor-pointer
+           hover:bg-gray-700/50 transition-colors;
+  }
+
+  .session-item:hover .session-delete-btn {
+    @apply opacity-100;
+  }
+
+  .session-item--active {
+    @apply bg-gray-700;
+  }
+
+  .session-main {
+    @apply flex items-start gap-3 flex-1 min-w-0;
+  }
+
+  .session-icon-wrapper {
+    @apply relative flex-shrink-0;
+  }
+
+  .session-icon {
+    @apply w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5;
+  }
+
+  .session-dxf-indicator {
+    @apply absolute -top-0.5 -right-0.5 w-2 h-2 text-green-400;
+  }
+
+  .session-content {
+    @apply flex-1 min-w-0;
+  }
+
+  .session-name {
+    @apply text-sm font-medium text-gray-100 truncate mb-1;
+  }
+
+  .session-name-input {
+    @apply w-full px-2 py-1 text-sm bg-gray-900 border border-gray-600 
+           rounded text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500;
+  }
+
+  .session-preview {
+    @apply text-xs text-gray-400 line-clamp-2 mb-1;
+  }
+
+  .session-date {
+    @apply text-xs text-gray-500;
+  }
+
+  .session-delete-btn {
+    @apply opacity-0 p-1 rounded 
+           hover:bg-gray-600 text-gray-400 hover:text-red-400 
+           transition-all duration-200;
+  }
+
+  .sidebar-footer {
+    @apply p-4 border-t border-gray-700 text-center;
+  }
+
+  .top-bar {
+    @apply fixed top-4 left-4 z-50 flex items-center gap-2;
+  }
+
+  .sidebar-toggle-btn {
+    @apply p-2 bg-gray-800 hover:bg-gray-700 
+           text-gray-200 rounded-lg border border-gray-600
+           transition-colors;
+  }
+
+  .new-chat-btn {
+    @apply flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 
+           text-white font-medium rounded-lg transition-colors duration-200
+           shadow-lg hover:shadow-xl;
+  }
+
+  .new-chat-btn-text {
+    @apply text-sm font-medium hidden sm:inline;
+  }
+
+  /* Desktop-Anpassungen - Top-Bar bleibt immer links */
+  @media (min-width: 1024px) {
+    .top-bar {
+      @apply left-4; /* Immer am linken Rand, da Sidebar jetzt togglebar ist */
+    }
+  }
+
+  /* Hauptinhalt-Anpassungen */
+  .main-content {
+    @apply flex-1 flex flex-col transition-all duration-300 pt-16;
+  }
+
+  .main-content--with-sidebar {
+    @apply lg:ml-80;
+  }
+
+  /* Desktop-Responsive */
+  @media (min-width: 1024px) {
+    .chat-sidebar--open {
+      @apply translate-x-0;
+    }
+
+    .sidebar-overlay {
+      @apply hidden;
+    }
+
+    .home-container {
+      @apply pl-0;
+    }
+
+    .main-content--with-sidebar {
+      @apply lg:ml-80;
+    }
+  }
+
+  /* Line-clamp utility für session-preview */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }

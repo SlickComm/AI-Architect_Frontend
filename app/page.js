@@ -14,6 +14,7 @@ import ReviewPane from "./components/ReviewPane";
 import StepSwitcher from "./components/StepSwitcher";
 import Tooltip from "./components/Tooltip";
 import EditAufmassModal from "./components/EditAufmassModal";
+import ChatSidebar from "./components/ChatSidebar";
 
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
@@ -53,6 +54,10 @@ export default function Home() {
 
   const [hasPositions, setHasPositions] = useState(false);
 
+  // Sidebar-State
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebarRef = useRef(null);
+
   const viewerContainerRef = useRef(null);
 
   const hasPendingSync = step === 2 && !!downloadFilename && (syncTick !== lastProcessedRef.current);
@@ -70,11 +75,7 @@ export default function Home() {
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      handleStartSession();
-    }
-  }, [isAuthenticated]);
+  // Automatische Session-Erstellung entfernt - wird nur noch manuell gestartet
 
   // --------------------------
   // 2) Neu rendern, wenn dxfBuffer / downloadFilename sich ändern
@@ -97,6 +98,37 @@ export default function Home() {
     })();
     return () => { cancelled = true; };
   }, [step, downloadFilename, syncTick]);
+
+  // Sidebar-Zustand bleibt konsistent über alle Bildschirmgrößen
+  // Benutzer kann selbst entscheiden ob Sidebar offen oder geschlossen ist
+
+  // Chat-Sessions beim App-Start laden
+  useEffect(() => {
+    if (isAuthenticated && sidebarRef.current) {
+      sidebarRef.current.loadChatSessions();
+    }
+  }, [isAuthenticated]);
+
+  // Manuell neue Session starten
+  async function startNewChat() {
+    try {
+      const resp = await fetch(`${baseUrl}/start-session`, {
+        method: "POST",
+      });
+
+      const data = await resp.json();
+      setSessionId(data.session_id);
+
+      // Session zur Sidebar hinzufügen
+      if (sidebarRef.current) {
+        sidebarRef.current.addNewSession(data.session_id, "Neue Unterhaltung gestartet...");
+      }
+
+      console.log("Neue Session gestartet:", data.session_id);
+    } catch (err) {
+      console.error("Fehler beim Starten einer neuen Session:", err);
+    }
+  }
 
   // --------------------------
   // Start Session
@@ -140,6 +172,7 @@ export default function Home() {
       if (data.status === "ok") {
         markSessionDirty();
         setGptAnswer(data.answer);
+        updateSidebarWithResponse(data.answer);
 
         setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
         console.log("Aktualisiertes JSON:", data.updated_json);
@@ -175,6 +208,11 @@ export default function Home() {
 
       setDxfBuffer(arrayBuffer);
       setDownloadFilename(filename);
+
+      // DXF-Status in Sidebar aktualisieren
+      if (sidebarRef.current) {
+        sidebarRef.current.updateSessionDxfStatus(sessionId, true);
+      }
 
       await loadAufmassTextFromSession();
 
@@ -269,6 +307,7 @@ export default function Home() {
       const data = await resp.json();
       if (data.status === "ok") {
         setGptAnswer(data.answer);
+        updateSidebarWithResponse(data.answer);
 
         setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
         markSessionDirty();
@@ -305,6 +344,7 @@ export default function Home() {
       const data = await resp.json();
       if (data.status === "ok") {
         setGptAnswer(data.answer);
+        updateSidebarWithResponse(data.answer);
 
         setHasPositions(hasAnyPositions(data.updated_json?.elements || []));
         markSessionDirty();
@@ -506,8 +546,169 @@ export default function Home() {
 
   function markSessionDirty() { setSyncTick(t => t + 1); }
 
+  // Sidebar-Handler
+  function handleNewSession(newSessionId) {
+    setSessionId(newSessionId);
+    // Reset der Hauptkomponente für neue Session
+    setElementDescription("");
+    setGptAnswer("");
+    setDxfBuffer(null);
+    setDownloadFilename("");
+    setAssigned([]);
+    setToReview([]);
+    setReviewed([]);
+    setStep(1);
+    setAufmassText("");
+    setAufmassRows([]);
+    setHasPositions(false);
+
+    // Session zur Sidebar-Liste hinzufügen falls nicht vorhanden
+    if (sidebarRef.current) {
+      sidebarRef.current.addNewSession(newSessionId, "Neue Unterhaltung gestartet...");
+    }
+  }
+
+  // Session-Daten vom Server laden
+  async function loadSessionData(sessionId) {
+    try {
+      // 1. Session-Daten laden
+      const sessionResp = await fetch(`${baseUrl}/session?session_id=${sessionId}`);
+      if (!sessionResp.ok) {
+        console.error("Session nicht gefunden");
+        return;
+      }
+
+      const sessionData = await sessionResp.json();
+      const elements = Array.isArray(sessionData?.elements) ? sessionData.elements : [];
+
+      // 2. Prüfen ob Session Positionen hat
+      setHasPositions(hasAnyPositions(elements));
+
+      // 3. Letzten GPT-Answer finden
+      const lastChatElement = [...elements].reverse().find(e => 
+        e.type && !['aufmass', 'aufmass_override'].includes(e.type.toLowerCase())
+      );
+      if (lastChatElement?.answer) {
+        setGptAnswer(lastChatElement.answer);
+      } else {
+        setGptAnswer("");
+      }
+
+      // 4. Aufmaß-Text laden
+      const aufmassElement = [...elements].reverse().find(e => 
+        (e.type || "").toLowerCase() === "aufmass"
+      );
+      setAufmassText(aufmassElement?.text || "");
+
+      // 5. DXF generieren und laden falls Positionen vorhanden
+      if (elements.length > 0 && hasAnyPositions(elements)) {
+        await handleGenerateDxfForSession(sessionId);
+      } else {
+        // Keine DXF-Daten vorhanden
+        setDxfBuffer(null);
+        setDownloadFilename("");
+      }
+
+      // 6. Step zurücksetzen
+      setStep(1);
+
+      console.log("Session-Daten geladen:", sessionData);
+    } catch (error) {
+      console.error("Fehler beim Laden der Session-Daten:", error);
+    }
+  }
+
+  // DXF für spezifische Session generieren
+  async function handleGenerateDxfForSession(sessionId) {
+    try {
+      const resp = await fetch(`${baseUrl}/generate-dxf-by-session?session_id=${sessionId}`, {
+        method: "POST",
+      });
+      if (!resp.ok) {
+        console.warn("DXF konnte für Session nicht generiert werden");
+        return;
+      }
+
+      const arrayBuffer = await resp.arrayBuffer();
+      const filename = `session_${sessionId}.dxf`;
+
+      setDxfBuffer(arrayBuffer);
+      setDownloadFilename(filename);
+
+    } catch (err) {
+      console.error("Fehler bei generate-dxf für Session:", err);
+    }
+  }
+
+  async function handleSessionChange(selectedSessionId) {
+    // Session-Zustand zurücksetzen
+    setElementDescription("");
+    setAssigned([]);
+    setToReview([]);
+    setReviewed([]);
+    setAufmassRows([]);
+
+    // Neue Session ID setzen
+    setSessionId(selectedSessionId);
+
+    // Sidebar auf Mobile schließen
+    setSidebarOpen(false);
+
+    // Session-Daten laden
+    await loadSessionData(selectedSessionId);
+  }
+
+  // Chat-Antwort an Sidebar weiterleitung
+  function updateSidebarWithResponse(response) {
+    if (sidebarRef.current && response) {
+      sidebarRef.current.updateCurrentSession(response);
+    }
+  }
+
+  function toggleSidebar() {
+    setSidebarOpen(!sidebarOpen);
+  }
+
   return (
     <div className="home-container">
+      {/* Chat-Sidebar */}
+      <ChatSidebar
+        ref={sidebarRef}
+        currentSessionId={sessionId}
+        onSessionChange={handleSessionChange}
+        onNewSession={handleNewSession}
+        isOpen={sidebarOpen}
+        onToggle={toggleSidebar}
+      />
+
+      {/* Top-Bar mit Buttons */}
+      <div className="top-bar">
+        {/* Sidebar-Toggle-Button */}
+        <button 
+          className="sidebar-toggle-btn"
+          onClick={toggleSidebar}
+          aria-label="Chat-Verlauf anzeigen"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        {/* Neuen Chat starten Button */}
+        <button
+          onClick={startNewChat}
+          className="new-chat-btn"
+          aria-label="Neuen Chat starten"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="new-chat-btn-text">Neuer Chat</span>
+        </button>
+      </div>
+
+      {/* Hauptinhalt-Wrapper */}
+      <div className={`main-content ${sidebarOpen ? 'main-content--with-sidebar' : ''}`}>
       <StepSwitcher step={step} setStep={setStep} onAuxClick={openAufmassEditor} hasPositions={hasPositions}/>
       {/* Preview-Bereich oben */}
       {step === 1 && (
@@ -521,12 +722,17 @@ export default function Home() {
               <Image src={ChatCADLogo} alt="ChatCAD-Logo" width={150} height={150} />
               <h1 className="home-initialTitle">ChatCAD</h1>
               <p className="home-subtitle">Create technical drawings in no time</p>
+              {!sessionId && (
+                <p className="text-gray-400 text-sm">
+                  Klicken Sie auf "Neuer Chat" um zu beginnen
+                </p>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {step === 1 && (
+      {step === 1 && sessionId && (
         <div className="home-inputContainer">
           {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
             <div className="home-action">
@@ -566,7 +772,7 @@ export default function Home() {
         />
       )}
 
-      {step === 1 && (
+      {step === 1 && sessionId && (
         <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
       )}
 
@@ -578,6 +784,7 @@ export default function Home() {
         rawText={aufmassText}           
         onSave={(rows) => saveAufmassRows(rows)}
       />
+      </div>
     </div>
   );
 }
