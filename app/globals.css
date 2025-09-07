@@ -206,11 +206,11 @@
 
   /* ---------- Review-Pane ---------- */
   .review-pane {
-    @apply flex flex-col gap-4 pt-10 pb-10 pl-8 pr-8 overflow-y-auto h-[calc(100vh-theme(spacing.48))];
+    @apply flex flex-col gap-4 mt-16 mb-10 ml-8 mr-8 pt-20 overflow-y-auto h-[calc(100vh-theme(spacing.48))];
   }
 
   .rp-heading {
-    @apply text-lg mt-10 font-semibold text-gray-200;
+    @apply text-lg font-semibold text-gray-200;
   }
 
   .rp-list {
