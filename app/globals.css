@@ -94,7 +94,7 @@
   }
   
   .home-preview {
-    @apply flex-1 relative border-gray-700 overflow-auto;
+    @apply flex-1 min-h-0 relative border-gray-700 overflow-auto;
   }
 
   .home-initialScreen {
@@ -257,7 +257,7 @@
   }
 
   .step-mini-slot { 
-    @apply w-9 h-9 shrink-0 flex items-center justify-center; 
+    @apply w-9 h-9 shrink-0 flex items-center justify-center pointer-events-auto; 
   }
 
   .step-mini-btn {
@@ -266,11 +266,11 @@
 
   /* ---------- Step-Switcher ---------- */
   .step-switch-wrapper {
-    @apply sticky top-0 z-40 w-full flex justify-center pt-3;
+    @apply absolute top-16 left-0 right-0 z-40 flex justify-center pt-4 pointer-events-none;
   }
 
   .step-switch-inner {
-    @apply inline-flex rounded-full bg-gray-700 p-1 shadow-lg;
+    @apply inline-flex rounded-full bg-gray-700 p-1 shadow-lg pointer-events-auto;
   }
 
   .step-switch-btn {
@@ -611,7 +611,7 @@
 
   /* Hauptinhalt-Anpassungen */
   .main-content {
-    @apply flex-1 flex flex-col transition-all duration-300 pt-16;
+    @apply relative flex-1 flex flex-col transition-all duration-300;
   }
 
   .main-content--with-sidebar {
