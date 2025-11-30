@@ -2,8 +2,10 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import PocketBase from 'pocketbase';
+import theme from "tailwindcss/defaultTheme";
+const pb = new PocketBase('https://pocketbase-ygoo0ow0kskcco8cks84w4ws.cad-ch.at');
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,10 +18,22 @@ export default function LoginPage() {
     e.preventDefault();
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log("Eingeloggt:", userCredential.user);
+        const authData = await pb.collection('users').authWithPassword(
+            email,
+            password,
+        );
 
-      router.push("/");
+// after the above you can also access the auth data from the authStore
+        if (!pb.authStore.isValid) {
+            console.log("Unauth")
+        }
+
+        console.log(pb.authStore.isValid);
+        console.log(pb.authStore.token);
+        console.log(pb.authStore.record.id);
+
+
+        router.push("/");
     } catch (error) {
       console.error("Fehler beim Login:", error);
       alert(error.message);

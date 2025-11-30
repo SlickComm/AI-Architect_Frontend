@@ -15,9 +15,6 @@ import StepSwitcher from "./components/StepSwitcher";
 import Tooltip from "./components/Tooltip";
 import EditAufmassModal from "./components/EditAufmassModal";
 
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
-
 import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -58,14 +55,14 @@ export default function Home() {
   const hasPendingSync = step === 2 && !!downloadFilename && (syncTick !== lastProcessedRef.current);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    /*const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push("/login");
       } else {
         setIsAuthenticated(true);
       }
       setLoading(false);
-    });
+    });*/
 
     return () => unsubscribe();
   }, [router]);
