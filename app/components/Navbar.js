@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "../firebase";
 
 export default function Navbar() {
   const router = useRouter();
@@ -14,15 +12,15 @@ export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    /*const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsLoggedIn(!!user);
     });
-    return () => unsubscribe();
+    return () => unsubscribe();*/
   }, []);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+//      await signOut(auth);
       console.log("User logged out");
       router.push("/login");
     } catch (error) {

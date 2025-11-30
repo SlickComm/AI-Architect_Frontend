@@ -2,8 +2,9 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import PocketBase from 'pocketbase';
+const pb = new PocketBase('https://pocketbase-ygoo0ow0kskcco8cks84w4ws.cad-ch.at');
+
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,7 +16,15 @@ export default function RegisterPage() {
     e.preventDefault();
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const data = {
+            "email": email,
+            "emailVisibility": true,
+            "name": "test",
+            "password": password,
+            "passwordConfirm": password
+        };
+
+        const userCredential = await pb.collection('users').create(data);
 
       console.log("Erfolgreich registriert:", userCredential.user);
       router.push("/");
