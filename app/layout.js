@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 
 import Navbar from "./components/Navbar";
+import { SidebarProvider } from "./components/SidebarContext";
 
 import "./globals.css";
 
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "ChatCAD",
+  title: "CadChat",
   description: "Generate technical drawings in no time",
 };
 
@@ -23,10 +24,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Navbar />
-        <div className="main-content">
-          {children}
-        </div>
+        <SidebarProvider>
+          <Navbar />
+          <div className="main-content">
+            {children}
+          </div>
+        </SidebarProvider>
       </body>
     </html>
   );

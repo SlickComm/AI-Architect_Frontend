@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from 'next/image'
 
@@ -14,6 +14,9 @@ import ReviewPane from "./components/ReviewPane";
 import StepSwitcher from "./components/StepSwitcher";
 import Tooltip from "./components/Tooltip";
 import EditAufmassModal from "./components/EditAufmassModal";
+import AufmassSidebar from "./components/AufmassSidebar";
+
+import { useSidebar } from "./components/SidebarContext";
 
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
@@ -24,6 +27,7 @@ const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function Home() {
   const router = useRouter();
+  const { isSidebarOpen } = useSidebar();
 
   const lastProcessedRef = useRef(0);
 
@@ -31,6 +35,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   const [sessionId, setSessionId] = useState("");
+  const [chatSessions, setChatSessions] = useState([]);
+
   const [elementDescription, setElementDescription] = useState("");
 
   const [dxfBuffer, setDxfBuffer] = useState(null);
@@ -52,6 +58,8 @@ export default function Home() {
   const [aufmassText, setAufmassText] = useState("");
 
   const [hasPositions, setHasPositions] = useState(false);
+
+  const [selectedAufmassId, setSelectedAufmassId] = useState(null);
 
   const viewerContainerRef = useRef(null);
 
@@ -98,6 +106,8 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [step, downloadFilename, syncTick]);
 
+  const aufmassItems = chatSessions;
+
   // --------------------------
   // Start Session
   // --------------------------
@@ -108,12 +118,53 @@ export default function Home() {
       });
 
       const data = await resp.json();
-      setSessionId(data.session_id);
+      const newId = data.session_id;
 
-      console.log("Session gestartet:", data.session_id);
+      // UI-State für die neue Session resetten
+      resetSessionUiState();
+
+      setSessionId(newId);
+      setSelectedAufmassId(newId);
+
+      // neuen Chat in die Liste aufnehmen
+      setChatSessions((prev) => [
+        ...prev,
+        { id: newId, title: "Neuer Aufmaß-Chat" },
+      ]);
+
+      console.log("Session gestartet:", newId);
     } catch (err) {
       console.error("Fehler bei start-session:", err);
     }
+  }
+
+  // --------------------------
+  // Start new Chat (only Wrapper)
+  // --------------------------
+  async function handleNewAufmassChat() {
+    await handleStartSession();
+  }
+
+  function resetSessionUiState() {
+    // Canvas im Viewer-Container leeren
+    if (viewerContainerRef.current) {
+      viewerContainerRef.current.innerHTML = "";
+    }
+
+    // DXF / Chat-State zurücksetzen
+    setDxfBuffer(null);
+    setDownloadFilename("");
+    setGptAnswer("");
+    setElementDescription("");
+    setAssigned([]);
+    setToReview([]);
+    setReviewed([]);
+    setStep(1);
+    setAufmassRows([]);
+    setAufmassText("");
+    setHasPositions(false);
+    setSyncTick(0);
+    lastProcessedRef.current = 0;
   }
 
   // --------------------------
@@ -155,16 +206,20 @@ export default function Home() {
   // --------------------------
   // Generate DXF
   // --------------------------
-  async function handleGenerateDxf() {
-    if (!sessionId) {
+  async function handleGenerateDxf(id = sessionId) {
+    const sid = id || sessionId;
+    if (!sid) {
       alert("Keine Session vorhanden.");
       return;
     }
 
     try {
-      const resp = await fetch(`${baseUrl}/generate-dxf-by-session?session_id=${sessionId}`, {
-        method: "POST",
-      });
+      const resp = await fetch(
+        `${baseUrl}/generate-dxf-by-session?session_id=${sid}`,
+        {
+          method: "POST",
+        }
+      );
       if (!resp.ok) {
         alert("Fehler beim Generieren der DXF");
         return;
@@ -176,8 +231,7 @@ export default function Home() {
       setDxfBuffer(arrayBuffer);
       setDownloadFilename(filename);
 
-      await loadAufmassTextFromSession();
-
+      await loadAufmassTextFromSession(sid);
     } catch (err) {
       console.error("Fehler bei generate-dxf:", err);
     }
@@ -418,19 +472,38 @@ export default function Home() {
   }
 
   // helper: Aufmaßtext aus der Session lesen
-  async function loadAufmassTextFromSession() {
-    if (!sessionId) return;
+  async function loadAufmassTextFromSession(id = sessionId) {
+    if (!id) return { hasElements: false };
     try {
-      const resp = await fetch(`${baseUrl}/session?session_id=${sessionId}`);
+      const resp = await fetch(`${baseUrl}/session?session_id=${id}`);
       const data = await resp.json();
       const items = Array.isArray(data?.elements) ? data.elements : [];
-      
+
       setHasPositions(hasAnyPositions(items));
 
-      const last = [...items].reverse().find(e => (e.type || "").toLowerCase() === "aufmass");
-      setAufmassText(last?.text || "");
+      const last = [...items]
+        .reverse()
+        .find((e) => (e.type || "").toLowerCase() === "aufmass");
+      const text = last?.text || "";
+      setAufmassText(text);
+
+      // Titel in der Chatliste aktualisieren (erste Zeile, gekürzt)
+      if (text) {
+        const firstLine = text.split("\n")[0];
+        const title =
+          firstLine.length > 40 ? firstLine.slice(0, 40) + "…" : firstLine;
+
+        setChatSessions((prev) =>
+          prev.map((chat) =>
+            chat.id === id ? { ...chat, title } : chat
+          )
+        );
+      }
+
+      return { hasElements: items.length > 0 };
     } catch (e) {
       console.error("Aufmaß-Text laden fehlgeschlagen:", e);
+      return { hasElements: false };
     }
   }
 
@@ -468,6 +541,23 @@ export default function Home() {
     // 2) DXF neu generieren + anzeigen
     await handleGenerateDxf();
     markSessionDirty();
+  }
+
+  async function handleSelectChat(chatId) {
+    if (!chatId || chatId === sessionId) return;
+
+    // UI für die andere Session vorbereiten
+    resetSessionUiState();
+    setSessionId(chatId);
+    setSelectedAufmassId(chatId);
+
+    // Daten dieser Session nachladen
+    const { hasElements } = await loadAufmassTextFromSession(chatId);
+
+    // Nur wenn die Session schon Elemente hat, DXF generieren
+    if (hasElements) {
+      await handleGenerateDxf(chatId);
+    }
   }
 
   // --------------------------
@@ -508,74 +598,109 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <StepSwitcher step={step} setStep={setStep} onAuxClick={openAufmassEditor} hasPositions={hasPositions}/>
-      {/* Preview-Bereich oben */}
-      {step === 1 && (
-        <div className="home-preview">
-          {downloadFilename ? (
-            /* DXF-Viewer */
-            <div ref={viewerContainerRef} className="home-viewer" />
-          ) : (
-            /* Initialer Platzhalter */
-            <div className="home-initialScreen">
-              <Image src={ChatCADLogo} alt="ChatCAD-Logo" width={150} height={150} />
-              <h1 className="home-initialTitle">ChatCAD</h1>
-              <p className="home-subtitle">Create technical drawings in no time</p>
+      {/* Hauptbereich: Sidebar (links) + Inhalt (rechts) */}
+      <div className="home-layout flex flex-1">
+        {/* Sidebar LINKS, einklappbar */}
+        {isSidebarOpen && (
+          <AufmassSidebar
+            items={aufmassItems}
+            selectedId={selectedAufmassId}
+            onSelect={handleSelectChat}
+            onNewChat={handleNewAufmassChat}
+          />
+        )}
+
+        {/* Hauptspalte RECHTS */}
+        <div className="home-mainColumn flex-1 min-w-0 flex flex-col">
+          <StepSwitcher
+            step={step}
+            setStep={setStep}
+            onAuxClick={openAufmassEditor}
+            hasPositions={hasPositions}
+          />
+
+          {/* Preview-Bereich oben */}
+          {step === 1 && (
+            <div className="home-preview">
+              {downloadFilename ? (
+                /* DXF-Viewer */
+                <div ref={viewerContainerRef} className="home-viewer" />
+              ) : (
+                /* Initialer Platzhalter */
+                <div className="home-initialScreen">
+                  <Image
+                    src={ChatCADLogo}
+                    alt="ChatCAD-Logo"
+                    width={150}
+                    height={150}
+                  />
+                  <h1 className="home-initialTitle">ChatCAD</h1>
+                  <p className="home-subtitle">
+                    Create technical drawings in no time
+                  </p>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {step === 1 && (
-        <div className="home-inputContainer">
-          {gptAnswer && <p className="home-chatBubble">{gptAnswer}</p>}
-            <div className="home-action">
-              <Tooltip />
-
-              <input
-                type="text"
-                className="home-input"
-                placeholder="Befehl eingeben... (Enter zum Ausführen)"
-                value={elementDescription}
-                onChange={(e) => setElementDescription(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-
-              {downloadFilename && (
-                <button
-                  className="home-download" 
-                  onClick={handleDownloadClick}
-                >
-                  Download
-                </button>
+          {step === 1 && (
+            <div className="home-inputContainer">
+              {gptAnswer && (
+                <p className="home-chatBubble">{gptAnswer}</p>
               )}
-              
-          </div>
+              <div className="home-action">
+                <Tooltip />
+
+                <input
+                  type="text"
+                  className="home-input"
+                  placeholder="Befehl eingeben... (Enter zum Ausführen)"
+                  value={elementDescription}
+                  onChange={(e) =>
+                    setElementDescription(e.target.value)
+                  }
+                  onKeyDown={handleKeyDown}
+                />
+
+                {downloadFilename && (
+                  <button
+                    className="home-download"
+                    onClick={handleDownloadClick}
+                  >
+                    Download
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <ReviewPane
+              assigned={assigned}
+              toReview={toReview}
+              onGeneratePdf={handleGenerateAndDownload}
+              isGenerating={isGeneratingPdf}
+              loadingAssigned={hasPendingSync}
+              loadingReview={hasPendingSync}
+              onReplace={handleReplace}
+            />
+          )}
+
+          {step === 1 && (
+            <p className="home-hint">
+              *Das KI-Modell ist limitiert auf die Erzeugung von Baugräben,
+              Rohren, Oberflächenbefestigungen und Durchstichen.
+            </p>
+          )}
         </div>
-      )}
-
-      {step === 2 && (
-        <ReviewPane
-          assigned={assigned}
-          toReview={toReview}
-          onGeneratePdf={handleGenerateAndDownload}
-          isGenerating={isGeneratingPdf}
-          loadingAssigned={hasPendingSync}
-          loadingReview={hasPendingSync}
-          onReplace={handleReplace}
-        />
-      )}
-
-      {step === 1 && (
-        <p className="home-hint">*Das KI-Modell ist limitiert auf die Erzeugung von Baugräben, Rohren, Oberflächenbefestigungen und Durchstichen.</p>
-      )}
+      </div>
 
       {/* Aufmaß-Editor Modal */}
       <EditAufmassModal
         open={aufmassEditorOpen}
         onClose={() => setAufmassEditorOpen(false)}
         rows={aufmassRows}
-        rawText={aufmassText}           
+        rawText={aufmassText}
         onSave={(rows) => saveAufmassRows(rows)}
       />
     </div>

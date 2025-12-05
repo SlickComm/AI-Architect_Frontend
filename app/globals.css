@@ -90,7 +90,7 @@
   
   /* Home */
   .home-container {
-    @apply h-screen flex flex-col bg-gray-900 text-white m-0 p-0;
+    @apply h-screen flex flex-col bg-gray-900 text-white m-0 p-0 pt-16;
   }
   
   .home-preview {
@@ -196,6 +196,54 @@
 
   .navbar-mobile-button {
     @apply w-full;
+  }
+
+  /* Sidebar */
+  .aufmass-sidebar {
+    @apply flex flex-col w-64 shrink-0 border-r border-gray-800 bg-gray-900 px-3 py-4;
+  }
+
+  .aufmass-sidebar__header {
+    @apply flex items-center justify-between mb-3;
+  }
+
+  .aufmass-sidebar__title {
+    @apply text-xs font-semibold text-gray-300 uppercase tracking-wide;
+  }
+
+  .aufmass-sidebar__subtitle {
+    @apply mt-1 text-[11px] text-gray-500;
+  }
+
+  .aufmass-sidebar__new-btn {
+    @apply inline-flex items-center justify-center w-7 h-7 rounded-full
+          bg-blue-600 text-white text-lg leading-none hover:bg-blue-500;
+  }
+
+  .aufmass-sidebar__list-container {
+    @apply mt-3 flex-1 overflow-y-auto space-y-1;
+  }
+
+  .aufmass-sidebar__empty-text {
+    @apply text-xs text-gray-500;
+  }
+
+  .aufmass-sidebar-list {
+    @apply list-none m-0 p-0;
+  }
+
+  /* Items = Chat-Balken */
+  .aufmass-sidebar-item {
+    @apply cursor-pointer rounded-md px-3 py-2 text-sm text-gray-200
+          bg-gray-800 hover:bg-gray-700 transition-colors;
+  }
+
+  .aufmass-sidebar-item--active {
+    @apply bg-blue-600 text-white;
+  }
+
+  .aufmass-sidebar-item__title {
+    @apply truncate;
   }
 
   /* ---------- Review-Pane ---------- */
