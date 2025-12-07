@@ -147,7 +147,7 @@ export default function Home() {
     if (step === 1 && downloadFilename && dxfBuffer && viewerContainerRef.current) {
       renderDXF(dxfBuffer);
     }
-  }, [step, downloadFilename, dxfBuffer]);
+  }, [step, downloadFilename, dxfBuffer, isSidebarOpen]);
 
   useEffect(() => {
     const aufmassIsPresent = !!downloadFilename;
