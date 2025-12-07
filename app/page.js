@@ -25,6 +25,9 @@ import ChatCADLogo from "../app/Logo_ChatCAD.png";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
+const LS_KEY_SESSIONS = "chatcad_sessions";
+const LS_KEY_SELECTED = "chatcad_selected_session";
+
 export default function Home() {
   const router = useRouter();
   const { isSidebarOpen } = useSidebar();
@@ -79,10 +82,63 @@ export default function Home() {
   }, [router]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      handleStartSession();
+    if (!isAuthenticated) return;
+
+    try {
+      const stored = localStorage.getItem(LS_KEY_SESSIONS);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // 1) Liste aus localStorage übernehmen
+          setChatSessions(parsed);
+
+          // 2) zuletzt ausgewählte Session wählen (oder erste)
+          const storedSelected = localStorage.getItem(LS_KEY_SELECTED);
+          const initialId =
+            storedSelected && parsed.some(c => c.id === storedSelected)
+              ? storedSelected
+              : parsed[0].id;
+
+          setSessionId(initialId);
+          setSelectedAufmassId(initialId);
+
+          // 3) Daten dieser Session vom Backend nachladen
+          (async () => {
+            const { hasElements } = await loadAufmassTextFromSession(initialId);
+            if (hasElements) {
+              await handleGenerateDxf(initialId);
+            }
+          })();
+
+          return; // <– Ganz wichtig: KEINE neue Session erzeugen
+        }
+      }
+    } catch (e) {
+      console.warn("Konnte Sessions aus localStorage nicht laden:", e);
     }
+
+    // Fallback: es gibt noch keine gespeicherten Sessions ⇒ neue starten
+    handleStartSession();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    try {
+      localStorage.setItem(LS_KEY_SESSIONS, JSON.stringify(chatSessions));
+    } catch (e) {
+      console.warn("Konnte Sessions nicht in localStorage speichern:", e);
+    }
+  }, [chatSessions, isAuthenticated]);
+
+  // Ausgewählten Chat merken
+  useEffect(() => {
+    if (!isAuthenticated || !selectedAufmassId) return;
+    try {
+      localStorage.setItem(LS_KEY_SELECTED, selectedAufmassId);
+    } catch (e) {
+      console.warn("Konnte selectedId nicht speichern:", e);
+    }
+  }, [selectedAufmassId, isAuthenticated]);
 
   // --------------------------
   // 2) Neu rendern, wenn dxfBuffer / downloadFilename sich ändern
@@ -120,17 +176,17 @@ export default function Home() {
       const data = await resp.json();
       const newId = data.session_id;
 
-      // UI-State für die neue Session resetten
       resetSessionUiState();
-
       setSessionId(newId);
       setSelectedAufmassId(newId);
 
-      // neuen Chat in die Liste aufnehmen
-      setChatSessions((prev) => [
-        ...prev,
-        { id: newId, title: "Neuer Aufmaß-Chat" },
-      ]);
+      setChatSessions((prev) => {
+        const index = prev.length + 1;
+        return [
+          ...prev,
+          { id: newId, title: `Aufmaß-Chat ${index}` },
+        ];
+      });
 
       console.log("Session gestartet:", newId);
     } catch (err) {
@@ -146,12 +202,11 @@ export default function Home() {
   }
 
   function resetSessionUiState() {
-    // Canvas im Viewer-Container leeren
     if (viewerContainerRef.current) {
       viewerContainerRef.current.innerHTML = "";
+      viewerContainerRef.current.removeAttribute("style"); // <– wichtig
     }
 
-    // DXF / Chat-State zurücksetzen
     setDxfBuffer(null);
     setDownloadFilename("");
     setGptAnswer("");
@@ -487,19 +542,6 @@ export default function Home() {
       const text = last?.text || "";
       setAufmassText(text);
 
-      // Titel in der Chatliste aktualisieren (erste Zeile, gekürzt)
-      if (text) {
-        const firstLine = text.split("\n")[0];
-        const title =
-          firstLine.length > 40 ? firstLine.slice(0, 40) + "…" : firstLine;
-
-        setChatSessions((prev) =>
-          prev.map((chat) =>
-            chat.id === id ? { ...chat, title } : chat
-          )
-        );
-      }
-
       return { hasElements: items.length > 0 };
     } catch (e) {
       console.error("Aufmaß-Text laden fehlgeschlagen:", e);
@@ -507,7 +549,7 @@ export default function Home() {
     }
   }
 
-   async function openAufmassEditor() {
+  async function openAufmassEditor() {
     try {
       const resp = await fetch(`${baseUrl}/get-aufmass-lines?session_id=${sessionId}`);
       if (resp.ok) {
@@ -515,7 +557,6 @@ export default function Home() {
         if (lines?.length) {
           setAufmassRows(lines.map(t => ({ text: t, note: "" })));
         } else if (!aufmassText) {
-          // Fallback: Aufmaß-Text aus Session laden
           await loadAufmassTextFromSession();
         }
       }
@@ -523,7 +564,6 @@ export default function Home() {
     
     setAufmassEditorOpen(true);
   }
-
 
   async function saveAufmassRows(newRows) {
     // newRows: [{text, note}] vom Modal
@@ -621,12 +661,10 @@ export default function Home() {
 
           {/* Preview-Bereich oben */}
           {step === 1 && (
-            <div className="home-preview">
+            <div className="home-preview" key={sessionId}>
               {downloadFilename ? (
-                /* DXF-Viewer */
                 <div ref={viewerContainerRef} className="home-viewer" />
               ) : (
-                /* Initialer Platzhalter */
                 <div className="home-initialScreen">
                   <Image
                     src={ChatCADLogo}

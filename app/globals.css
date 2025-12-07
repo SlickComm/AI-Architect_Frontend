@@ -234,8 +234,7 @@
 
   /* Items = Chat-Balken */
   .aufmass-sidebar-item {
-    @apply cursor-pointer rounded-md px-3 py-2 text-sm text-gray-200
-          bg-gray-800 hover:bg-gray-700 transition-colors;
+    @apply cursor-pointer rounded-md px-3 py-2 text-sm text-gray-200 bg-gray-800 hover:bg-gray-700 transition-colors mb-2 last:mb-0;
   }
 
   .aufmass-sidebar-item--active {
@@ -308,7 +307,7 @@
 
   /* ---------- Step-Switcher ---------- */
   .step-switch-wrapper {
-    @apply sticky top-16 z-40 w-full flex justify-center pt-3;
+    @apply absolute top-3 left-1/2 -translate-x-1/2 z-40 flex justify-center;
   }
 
   .step-switch-inner {
@@ -523,3 +522,7 @@
   
   .btn-icon > svg { @apply w-[18px] h-[18px]; }
   .btn-icon.danger:hover > svg { @apply stroke-[#ff6b6b]; }
+
+  .home-mainColumn {
+    @apply flex-1 min-w-0 flex flex-col relative;
+  }
